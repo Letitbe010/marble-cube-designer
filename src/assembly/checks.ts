@@ -1,7 +1,7 @@
 import { boreRadius, CONFIG } from '../geometry/config';
 import type { Vec3 } from '../geometry/ports';
 import { heightSteps, rotatedFootprint, Z_STEP, type Assembly, type PlacedPiece } from './model';
-import { buildRunGraph, facing, isEntry, isExit, landingDrop, MAX_DROP } from './runs';
+import { buildRunGraph, facing, isEntry, isExit, isIdleHole, landingDrop, MAX_DROP } from './runs';
 
 export type CheckCode = 'overlap' | 'unsupported' | 'openExit' | 'blockedExit' | 'levelMismatch';
 
@@ -68,12 +68,13 @@ export function checkAssembly(assembly: Assembly): CheckIssue[] {
     if (!supported) issues.push(issue('unsupported', [piece.id]));
   }
 
-  const { runs, ends } = buildRunGraph(assembly);
+  const graph = buildRunGraph(assembly);
+  const { runs, ends } = graph;
   const unit = CONFIG.cubeSize;
   const occupantAt = (x: number, y: number, z: number) => occupant.get(cellKey(Math.floor(x / unit), Math.floor(y / unit), Math.floor(z / Z_STEP)));
 
   for (const run of runs) {
-    if (!run.flow) continue;
+    if (!run.flow || isIdleHole(run, graph)) continue;
     const exit = run.ends[run.flow === 'forward' ? 1 : 0];
     const { piece } = run;
     const [x, y, z] = exit.position;

@@ -157,6 +157,13 @@ function propagateFlow({ runs, ends }: RunGraph) {
   }
 }
 
+/** A chamber's top hole only matters when a channel leads the marble into it. */
+export function isIdleHole(run: Run, graph: RunGraph): boolean {
+  const entry = run.ends.find(isEntry);
+  if (entry?.vertical !== 'U' || !run.piece.spec.cavities?.some((c) => c.type === 'chamber')) return false;
+  return !graph.runs.some((other) => other !== run && other.piece === run.piece && other.ends.some((e) => e.vertical === 'U' && isExit(e)));
+}
+
 /** Every path of an assembly, with the direction of travel worked out where it can be. */
 export function buildRunGraph(assembly: Assembly): RunGraph {
   const runs = assembly.pieces.flatMap(runsOf);

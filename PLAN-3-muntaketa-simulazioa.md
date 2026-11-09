@@ -1,6 +1,6 @@
 # Muntaketa eta simulazioaren plana
 
-**Bertsioa:** 0.2 (onetsita, 2026-11-09)
+**Bertsioa:** 0.3 (2026-11-09: 4.4 atala eta M4 pausoa, muntaia-galeria, onetsita eta inplementatuta)
 **Data:** 2026-11-09
 **Aurrekoak:** [PLAN.md](PLAN.md), [PLAN-2-piezak.md](PLAN-2-piezak.md)
 
@@ -65,6 +65,57 @@ interface Assembly { name: string; pieces: PlacedPiece[]; }
 | `levelMismatch` | Sarrera irteera baino gorago dago, edo jauzia 25 mm baino handiagoa da | Errorea |
 
 Lotura-araua PLAN-2-piezak.md dokumentuko 2.3 atalekoa da.
+
+### 4.4 Muntaia-galeria (M4 pausoa)
+
+**Helburua:** aplikazioak 20 muntaia prest izatea, kargatu, simulatu eta aldatu daitezkeenak, edo zuzenean inprimatu eta eraikitzekoak, hutsetik diseinatzen hasi beharrik gabe.
+
+**Erabakiak:**
+
+| Gaia | Erabakia |
+|---|---|
+| Sorrera | Diseinu propioak dira, ez dira merkataritzako multzoen argibideak kopiatzen (PLAN-2, 2.4 atala) |
+| Formatua | Muntaia bakoitza liburutegiko pieza-izenen eta kokapenen zerrenda bat da, `src/assembly/gallery.ts` fitxategian. Horrela, pieza baten neurriak aldatzean galeria ere eguneratzen da |
+| Piezak | Gaur egun dauden piezak bakarrik. Kanal bikoitzak eta mugikorrak (7. eta 8. pausoak) dituzten muntaiak gero gehituko dira |
+| Kargatzea | Muntaketa fitxan, "Galeria" atalean. Uneko muntaia ordezkatzen du, eta "Desegin" botoiarekin berreskura daiteke |
+| Karga ondoren | Muntaia arrunta da: editatu, simulatu, JSON gisa gorde eta ZIP gisa esportatu daiteke |
+| Galeriako informazioa | Izena (hiru hizkuntzatan), maila, deskribapen laburra, pieza-kopurua, pieza-mota kopurua, bolumen trinkoa eta simulazioaren emaitza |
+| Inprimatze-kostua | Bolumen trinkoa bakarrik erakusten da. Denbora eta filamentua laminatzailearen menpe daude eta ez dira kalkulatzen |
+| Pieza partekatuak | Muntaiek pieza-mota gutxi berrerabiltzen dituzte, multzo bat inprimatuz gero beste batzuk ere eraiki ahal izateko |
+
+**Onarpen-irizpideak, 20 muntaietako bakoitzarentzat (test automatikoak):**
+
+1. Sareta barruan dago, eta `overlap`, `unsupported`, `blockedExit` eta `levelMismatch` errorerik ez du.
+2. Ez du `openExit` abisurik, mahai gainean dagoen azpiko zulo batean izan ezik (kanika zuloan geratzen da, eta simulazioak helmugatzat hartzen du).
+3. Hasiera-puntu bat gutxienez du, eta lehenetsitako parametroekin **Ondo** emaitza ematen du, topaketarik gabe.
+4. Finkatze-interfazearekin ere pieza guztiak zati bakarrekoak dira, eta ZIP-eko kopurua zerrendarekin bat dator.
+
+**Muntaiak** (pieza-kopuruak euskarriak barne hartzen ditu):
+
+| # | Izena | Maila | Erakusten duena | Kanikak | Piezak |
+|---|---|---|---|---|---|
+| 1 | Lehen jaitsiera | Hasiberria | Hasierako blokea, malda eta geldiunea | 1 | 5 |
+| 2 | Eskailera | Hasiberria | Hainbat malda jarraian | 1 | 11 |
+| 3 | Malda luzea | Hasiberria | 3 eta 2 unitateko malda baxuak | 1 | 9 |
+| 4 | Uhin-bidea | Hasiberria | Uhin-profila | 1 | 7 |
+| 5 | Ezkerra eta eskuina | Hasiberria | Maldadun kurbak bi noranzkoetan | 1 | 8 |
+| 6 | Inbututik tunelera | Ertaina | Inbutua eta tunelak | 1 | 11 |
+| 7 | Zuloan behera | Ertaina | Jaitsiera bertikala azpiko maldara | 1 | 7 |
+| 8 | Jauzia | Ertaina | 25 mm-ko jauzi kontrolatua | 1 | 10 |
+| 9 | Zubia | Ertaina | Pista arku eta zutabeen gainean | 1 | 13 |
+| 10 | Tunel ezkutua | Ertaina | Bidea bere azpitik pasatzen da pieza berean | 1 | 17 |
+| 11 | Pista baxua | Ertaina | Erdi-altuerako piezak soilik | 1 | 12 |
+| 12 | Espirala | Ertaina | Malda eta espirala, azpiko zuloan amaiera | 1 | 5 |
+| 13 | Bi espiral | Aurreratua | Espiral ezkerra eta eskuina | 2 | 10 |
+| 14 | Dorrea | Aurreratua | Bi bira beherantz, kurbak tuneletan | 1 | 38 |
+| 15 | Begizta handia | Aurreratua | Bira handi bat, bidea bere azpitik | 1 | 23 |
+| 16 | Ganbera | Aurreratua | Eskailera eta ganbera batean amaiera | 1 | 12 |
+| 17 | Lasterketa | Aurreratua | Bi pista paralelo | 2 | 28 |
+| 18 | Bidegurutzea | Aurreratua | Bi kanika gurutze batetik, une ezberdinetan | 2 | 19 |
+| 19 | Segida | Aurreratua | Bi kanika bide beretik, 1,2 s-ko atzerapenarekin | 2 | 16 |
+| 20 | Erakusketa | Aurreratua | Tunelak, uhina, zuloa eta espirala | 1 | 34 |
+
+**Mugak:** muntaien "Ondo" emaitza suposatutako parametroekin lortzen da (5.3 atala) eta ez du bermatzen benetan funtzionatuko dutenik. S5 kalibrazioaren ondoren, 20ak berriro egiaztatu beharko dira. Muntaia txikienak (1, 12) dira lehen inprimatze-proba egokienak. Ontziak ez dira simulatzen pasabide gisa (ikus 7. atala); horregatik galeriako muntaiek ez dute ontzirik ibilbidearen erdian. Kurba irekien abiadura-mugak (0,65 m/s inguru) eta 25 mm-ko jauziaren mugak altuera handiko muntaien diseinua baldintzatzen dute: horregatik kurbak tuneletan jartzen dira haietan.
 
 ## 5. Simulazioa
 
@@ -131,6 +182,10 @@ Muntaketa eta Simulazioa fitxak; hasi, gelditu eta abiadura (0,25x–2x); ibilbi
 | **S3** | Animazioa eta emaitzak | Pista batek hiru emaitzak erakuts ditzake parametroen arabera | Nabigatzailea |
 | **S4** | Bi kanika eta topaketak | Gurutze batean aldi berean iristean topaketa markatzen da | Testak |
 | **S5** | Kalibrazioa | Neurtutako parametroekin, pista erreal baten emaitza eta simulazioa bat datoz | Inprimaketa (PLAN-2, 9. pausoa) |
+
+| **M4** | Muntaia-galeria (4.4) | 20 muntaiek 4.4 ataleko lau irizpideak betetzen dituzte; galeriatik kargatu, simulatu eta ZIP-a atera daitezke | Testak eta nabigatzailea |
+
+M4 pausoa F pausoaren ondoren eta 7. pausoaren aurretik egitea gomendatzen da: dauden pieza guztiak erabiltzen ditu, sistema osoaren proba gisa balio du, eta 9. pausoko lehen inprimaketa-probetarako muntaia prestak ematen ditu.
 
 M1–M3 pausoek PLAN-2-piezak.md dokumentuko 6. pausoa ordezkatzen dute. S1–S4 pausoak hura amaitu ondoren egin daitezke, eta 7. eta 8. pausoen aurretik egitea gomendatzen da. Kanal bikoitzak eta Y bidegurutzeak gehitzean, 5.1 ataleko grafoa zabaldu beharko da.
 

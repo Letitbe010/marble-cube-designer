@@ -248,6 +248,16 @@ describe('starting points', () => {
     expect(findStarts(buildRunGraph(track)).map((run) => run.piece.id)).toEqual(['p2', 'p1']);
   });
 
+  it('does not release a marble from the idle hole of a chamber', () => {
+    expect(simulateAssembly(build([PRESETS.chamberCross, [1, 1, 0]]))).toEqual([]);
+  });
+
+  it('follows a channel into a chamber', () => {
+    const [result] = simulateAssembly(build([PRESETS.rampStraight, [1, 3, 1]], [PRESETS.chamberDrop, [1, 2, 0]]));
+    expect(result.outcome).toBe('finished');
+    expect(result.pieceIds).toEqual(['p1', 'p2']);
+  });
+
   it('has no start on a track with no slope at all', () => {
     expect(simulateAssembly(build([PRESETS.straightTop, [1, 1, 0]]))).toEqual([]);
   });

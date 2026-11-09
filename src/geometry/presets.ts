@@ -58,6 +58,7 @@ export const PRESETS: Record<string, PieceSpec> = {
   basinCross: boxPiece([c('N.T.0', 'S.T.0'), c('E.T.0', 'W.T.0')], [1, 1, 1], [cavity('basin', 20)]),
   basinCrossLow: boxPiece([c('N.T.0', 'S.T.0', LOW), c('E.T.0', 'W.T.0', LOW)], [1, 1, 0.5], [cavity('basin', 20)]),
   chamberCross: boxPiece([c('N.T.0', 'S.T.0'), c('E.T.0', 'W.T.0'), c('U.0', 'D.0')], [1, 1, 1], [cavity('chamber', 20)]),
+  chamberDrop: boxPiece([c('N.T.0', 'U.0'), c('U.0', 'D.0')], [1, 1, 1], [cavity('chamber', 20)]),
   spiral: boxPiece([], [2, 2, 0.5], [cavity('spiral', 12)]),
   spiralMirror: boxPiece([], [2, 2, 0.5], [cavity('spiralMirror', 12)]),
 };
@@ -66,7 +67,7 @@ export const LIBRARY: { category: 'catBlocks' | 'catStructures' | 'catChannels' 
   { category: 'catBlocks', items: ['cube', 'halfBlock', 'longBlock2', 'longBlock3', 'plate'] },
   { category: 'catChannels', items: ['straightTop', 'curveTop', 'crossTop', 'drop', 'straightTunnel', 'curveTunnel', 'topToTunnel', 'underside', 'double'] },
   { category: 'catRamps', items: ['rampStraight', 'rampLow', 'rampCurve', 'rampCurveMirror', 'rampCurveLow', 'rampCurveLowMirror', 'rampLong2', 'rampLong3', 'waveLong3', 'tunnelRamp'] },
-  { category: 'catSpecial', items: ['start', 'startLow', 'funnelTunnel', 'funnelDrop', 'stop', 'stopLow', 'basinCross', 'basinCrossLow', 'chamberCross', 'spiral', 'spiralMirror'] },
+  { category: 'catSpecial', items: ['start', 'startLow', 'funnelTunnel', 'funnelDrop', 'stop', 'stopLow', 'basinCross', 'basinCrossLow', 'chamberCross', 'chamberDrop', 'spiral', 'spiralMirror'] },
   { category: 'catLow', items: ['halfGroove', 'halfCurve', 'longGroove2', 'longGroove3', 'longTunnel2'] },
   { category: 'catStructures', items: ['cylinder', 'halfRound', 'arch', 'roof'] },
 ];

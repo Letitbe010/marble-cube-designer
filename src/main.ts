@@ -514,6 +514,8 @@ loadManifold()
       t,
       currentSpec: () => state.spec,
       locators: () => state.locators,
+      lang: () => state.lang,
+      onGalleryLoad: (item) => simulation?.setFollowDelay(item.followDelay),
       onChange: render,
       download,
     });

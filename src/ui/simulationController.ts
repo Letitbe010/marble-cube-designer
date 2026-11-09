@@ -77,6 +77,11 @@ export class SimulationController {
     }
   }
 
+  /** Matches the number of marbles to the assembly just loaded. */
+  setFollowDelay(delay: number | undefined) {
+    this.params = delay ? { ...this.params, marbleCount: 2, followDelay: delay } : { ...this.params, marbleCount: 1 };
+  }
+
   enter() {
     this.deps.view.onFrame = (elapsed) => this.tick(elapsed);
     this.recompute();

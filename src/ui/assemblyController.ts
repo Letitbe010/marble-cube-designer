@@ -20,6 +20,7 @@ import {
 } from '../assembly/model';
 import { checkAssembly, type CheckIssue } from '../assembly/checks';
 import { exportAssemblyZip } from '../assembly/export';
+import { GALLERY, type GalleryItem, type GalleryLevel } from '../assembly/gallery';
 import { pieceList } from '../assembly/pieceList';
 import { plateTiles } from '../assembly/plates';
 import { CONFIG } from '../geometry/config';
@@ -29,7 +30,9 @@ import { buildPiece } from '../geometry/piece';
 import type { PieceSpec } from '../geometry/ports';
 import { LIBRARY, PRESETS } from '../geometry/presets';
 import { AssemblyView } from './assemblyView';
-import { SHAPE_LABELS, type StringKey } from './i18n';
+import { evaluateAssembly, type Verdict } from '../simulation/evaluate';
+import { GALLERY_TEXT } from './galleryText';
+import { SHAPE_LABELS, type Lang, type StringKey } from './i18n';
 import { toFlatGeometry } from './viewer';
 
 const STORAGE_KEY = 'marble-cube-assembly';
@@ -41,6 +44,9 @@ export interface AssemblyDeps {
   t: (key: StringKey, values?: Record<string, string>) => string;
   currentSpec: () => PieceSpec;
   locators: () => boolean;
+  lang: () => Lang;
+  /** Tells the simulation how many marbles a loaded assembly is meant for. */
+  onGalleryLoad: (item: GalleryItem) => void;
   onChange: () => void;
   download: (content: ArrayBuffer | string, name: string, type: string) => void;
 }
@@ -66,6 +72,8 @@ export class AssemblyController {
   private importFailed = false;
   private issues: CheckIssue[] = [];
   private active = true;
+  private galleryId = GALLERY[0].id;
+  private readonly galleryInfo = new Map<string, { pieces: number; kinds: number; volume: number; verdict: Verdict | null }>();
 
   constructor(private readonly deps: AssemblyDeps) {
     this.view = new AssemblyView(deps.container, {
@@ -239,6 +247,55 @@ export class AssemblyController {
     this.afterChange();
   }
 
+  private galleryItem(): GalleryItem {
+    return GALLERY.find((item) => item.id === this.galleryId) ?? GALLERY[0];
+  }
+
+  /** Summary of a gallery assembly; building its pieces takes a moment, so it is kept. */
+  private describeGallery(item: GalleryItem) {
+    let info = this.galleryInfo.get(item.id);
+    if (!info) {
+      const groups = pieceList(item.assembly);
+      const params = item.followDelay ? { marbleCount: 2 as const, followDelay: item.followDelay } : {};
+      info = {
+        pieces: item.assembly.pieces.length,
+        kinds: groups.length,
+        volume: groups.reduce((sum, { spec, count }) => sum + buildPiece(this.deps.wasm, spec).volume * count, 0),
+        verdict: evaluateAssembly(item.assembly, params).verdict,
+      };
+      this.galleryInfo.set(item.id, info);
+    }
+    return info;
+  }
+
+  private loadGallery() {
+    const item = this.galleryItem();
+    this.selected = null;
+    this.brush = null;
+    this.commit(item.assembly);
+    this.deps.onGalleryLoad(item);
+  }
+
+  private renderGallery(): string {
+    const { t, lang } = this.deps;
+    const labels: Record<GalleryLevel, StringKey> = { beginner: 'galBeginner', intermediate: 'galIntermediate', advanced: 'galAdvanced' };
+    const verdicts: Record<Verdict, StringKey> = { good: 'verdictGood', marginal: 'verdictMarginal', problem: 'verdictProblem' };
+    const text = (item: GalleryItem) => GALLERY_TEXT[item.id][lang()];
+    const groups = (Object.keys(labels) as GalleryLevel[])
+      .map((level) => `<optgroup label="${t(labels[level])}">
+        ${GALLERY.filter((item) => item.level === level).map((item) => `<option value="${item.id}"${item.id === this.galleryId ? ' selected' : ''}>${text(item).name}</option>`).join('')}
+      </optgroup>`)
+      .join('');
+    const item = this.galleryItem();
+    const info = this.describeGallery(item);
+    return `
+      <h2>${t('galTitle')}</h2>
+      <select id="asmGallery" class="wide-select" aria-label="${t('galTitle')}">${groups}</select>
+      <p class="hint">${text(item).note}</p>
+      <p class="stats">${t('galInfo', { pieces: String(info.pieces), kinds: String(info.kinds), volume: (info.volume / 1000).toFixed(0) })}${info.verdict ? ` · ${t(verdicts[info.verdict])}` : ''}</p>
+      <button class="btn wide" data-asm="loadGallery">${t('galLoad')}</button>`;
+  }
+
   private async exportZip() {
     const data = await exportAssemblyZip(this.deps.wasm, this.assembly, { locators: this.deps.locators() });
     this.deps.download(data, `${this.assembly.name}.zip`, 'application/zip');
@@ -275,6 +332,7 @@ export class AssemblyController {
     else if (asm === 'redo') this.redo();
     else if (asm === 'stopPlacing') this.setBrush(null);
     else if (asm === 'exportZip') void this.exportZip();
+    else if (asm === 'loadGallery') this.loadGallery();
     else if (asm === 'clear') this.commit({ ...this.assembly, pieces: [] });
     else if (asm === 'save') this.deps.download(serializeAssembly(this.assembly), `${this.assembly.name}.json`, 'application/json');
     else if (asm === 'load') target.closest('#panel')?.querySelector<HTMLInputElement>('#asmFile')?.click();
@@ -282,7 +340,10 @@ export class AssemblyController {
 
   /** Handles a form change inside the panel. */
   handleChange(target: HTMLInputElement | HTMLSelectElement) {
-    if (target.id === 'asmBrush') this.setBrush(target.value || null);
+    if (target.id === 'asmGallery') {
+      this.galleryId = target.value;
+      this.deps.onChange();
+    } else if (target.id === 'asmBrush') this.setBrush(target.value || null);
     else if (target.id === 'asmFile') {
       const file = (target as HTMLInputElement).files?.[0];
       if (file) void this.importFile(file);
@@ -362,6 +423,8 @@ export class AssemblyController {
 
     return `
       <p class="hint">${t('asmHint')}</p>
+
+      ${this.renderGallery()}
 
       <h2>${t('asmPlace')}</h2>
       <select id="asmBrush" class="wide-select" aria-label="${t('asmPlace')}">

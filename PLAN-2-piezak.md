@@ -133,6 +133,7 @@ Pauso bakoitza amaitzean aplikazioa funtzionamenduan egongo da eta GitHub-en arg
 | **7** | **Kanal bikoitzak** | Erditik ±12,5 mm-ra dauden kaleak; Y bidegurutzea; tunel makurtuak | Portuei kalea gehitu; editorean bi kale | Bikoitz bat inprimatu |
 | **8** | **Arrapala askeak eta mugikorrak** | Euskarri-koskadun arrapala makurtua; balantzina ardatzarekin (joko 0,3 mm) | Muntaia anitzeko piezak | Mugimendua probatu |
 | **F** | **Finkatze-interfazea** (2.5) | Izkinetako tetoiak eta poltsak; oinarri-plaka | Aukera piezetan; plaka muntaian eta ZIPean; izkinen talka-egiaztapena | Hegal-testa; tetoi eta poltsen elkartzea testetan |
+| **M4** | **Muntaia-galeria** ([PLAN-3](PLAN-3-muntaketa-simulazioa.md), 4.4) | 20 muntaia prest, dauden piezekin | Galeria Muntaketa fitxan: kargatu, simulatu, ZIP-a | Muntaia bakoitzak egiaztapenak eta simulazioa gainditzen ditu |
 | **9** | **Kalibrazioa eta inprimatze-probak** | Kalibrazio-pieza eta aurreko pausoetako probak; plaka txiki bat eta bi kubo, 0,1 / 0,2 / 0,3 mm-ko jokoekin; kolpe-proba altzairuzko kanikarekin; parametroak doitu | Parametroen azken balioak | Pista bat fisikoki dabil |
 | **10** | **Kanika-bultzagailua** (2.8) | Penduluzko bultzagailua; lehenik horizontala, gero igoera | Pieza mugikorra liburutegian; simulazioan abiadura-iturri gisa | Igoera neurtu altzairuz eta beiraz |
 
