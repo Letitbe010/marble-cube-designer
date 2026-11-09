@@ -11,7 +11,7 @@ import { adaptChannels, validateDesign, type IssueCode } from './geometry/valida
 import type { Section } from './geometry/config';
 import { buildPrintParts, canSplit, pieceId } from './geometry/print';
 import { loadManifold } from './geometry/wasm';
-import { LANGS, portName, translate, type Lang, type StringKey } from './ui/i18n';
+import { LANGS, portName, SHAPE_LABELS, translate, type Lang, type StringKey } from './ui/i18n';
 import { AssemblyController } from './ui/assemblyController';
 import { Viewer } from './ui/viewer';
 
@@ -22,13 +22,6 @@ const CAVITY_LABELS: Record<CavityType, StringKey> = {
   basin: 'cavityBasin',
   chamber: 'cavityChamber',
   spiral: 'cavitySpiral',
-};
-const SHAPE_LABELS: Record<Shape, StringKey> = {
-  box: 'shapeBox',
-  cylinder: 'shapeCylinder',
-  halfCylinder: 'shapeHalfCylinder',
-  arch: 'shapeArch',
-  roof: 'shapeRoof',
 };
 
 type SectionChoice = 'auto' | 'slot' | 'tunnel';

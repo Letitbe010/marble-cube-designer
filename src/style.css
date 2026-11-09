@@ -30,6 +30,7 @@ html, body, #app { height: 100%; margin: 0; }
 .wide-select { width: 100%; padding: 6px; border: 1px solid var(--line); border-radius: 5px; background: #fff; }
 .move-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .move-grid .btn { text-align: center; }
+.notice.issue { display: block; width: 100%; border: none; text-align: left; cursor: pointer; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }

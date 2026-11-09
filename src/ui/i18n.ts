@@ -2,11 +2,28 @@ import type { Face, Port } from '../geometry/ports';
 import type { LevelId } from '../geometry/config';
 
 export type Lang = 'eu' | 'es' | 'en';
+
+export const SHAPE_LABELS = {
+  box: 'shapeBox',
+  cylinder: 'shapeCylinder',
+  halfCylinder: 'shapeHalfCylinder',
+  arch: 'shapeArch',
+  roof: 'shapeRoof',
+} as const;
 export const LANGS: Lang[] = ['eu', 'es', 'en'];
 
 const STRINGS = {
   eu: {
     hint: 'Aukeratu pieza bat edo egin klik bi portutan 3D bistan, kanal bat sortzeko.',
+    asmChecks: 'Egiaztapenak',
+    asmChecksSummary: '{errors} akats · {warnings} abisu',
+    asmNoIssues: 'Ez dago arazorik.',
+    asmList: 'Inprimatu beharreko piezak',
+    issue_overlap: 'Bi piezak leku bera betetzen dute.',
+    issue_unsupported: 'Pieza honek ez du ezer azpian.',
+    issue_openExit: 'Irteera hau ez dago hurrengo piezari lotuta.',
+    issue_blockedExit: 'Irteera hau pieza trinko baten kontra dago.',
+    issue_levelMismatch: 'Lotura honen altuerak ez dira egokiak: sarrera irteera baino gorago dago, edo jauzia 25 mm baino handiagoa da.',
     tabPiece: 'Pieza',
     tabAssembly: 'Muntaketa',
     asmHint: 'Aukeratu pieza bat eta egin klik saretan edo beste pieza baten gainean. Inprimatu aurretik zirkuitua muntatzeko.',
@@ -130,6 +147,15 @@ const STRINGS = {
   },
   es: {
     hint: 'Elige una pieza o haz clic en dos puertos en la vista 3D para crear un canal.',
+    asmChecks: 'Comprobaciones',
+    asmChecksSummary: '{errors} errores · {warnings} avisos',
+    asmNoIssues: 'No hay problemas.',
+    asmList: 'Piezas a imprimir',
+    issue_overlap: 'Dos piezas ocupan el mismo sitio.',
+    issue_unsupported: 'Esta pieza no tiene nada debajo.',
+    issue_openExit: 'Esta salida no está conectada a la siguiente pieza.',
+    issue_blockedExit: 'Esta salida choca contra una pieza maciza.',
+    issue_levelMismatch: 'Las alturas de esta unión no encajan: la entrada está más alta que la salida, o el salto supera 25 mm.',
     tabPiece: 'Pieza',
     tabAssembly: 'Montaje',
     asmHint: 'Elige una pieza y haz clic en la cuadrícula o sobre otra pieza. Sirve para montar el circuito antes de imprimir.',
@@ -253,6 +279,15 @@ const STRINGS = {
   },
   en: {
     hint: 'Pick a piece, or click two ports in the 3D view to create a channel.',
+    asmChecks: 'Checks',
+    asmChecksSummary: '{errors} errors · {warnings} warnings',
+    asmNoIssues: 'No problems found.',
+    asmList: 'Pieces to print',
+    issue_overlap: 'Two pieces occupy the same place.',
+    issue_unsupported: 'This piece has nothing underneath.',
+    issue_openExit: 'This exit is not connected to a next piece.',
+    issue_blockedExit: 'This exit runs into a solid piece.',
+    issue_levelMismatch: 'The heights of this joint do not match: the entry is above the exit, or the drop exceeds 25 mm.',
     tabPiece: 'Piece',
     tabAssembly: 'Assembly',
     asmHint: 'Pick a piece and click on the grid or on another piece. Use this to build the circuit before printing.',

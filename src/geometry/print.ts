@@ -38,13 +38,18 @@ const SEGMENTS: Record<string, string> = {
   C: '1001110', D: '0111101', E: '1001111', F: '1000111',
 };
 
-/** Short code identifying a piece's geometry, independent of the order it was edited in. */
-export function pieceId(spec: PieceSpec): string {
-  const canonical = JSON.stringify({
+/** Text describing a piece's geometry, independent of the order it was edited in. */
+export function specKey(spec: PieceSpec): string {
+  return JSON.stringify({
     body: spec.body,
     channels: spec.channels.map((c) => `${channelKey(c)}:${c.section}:${c.profile}`).sort(),
     cavities: (spec.cavities ?? []).map((c) => `${c.type}:${c.size}:${c.cell.join(',')}`).sort(),
   });
+}
+
+/** Short code identifying a piece's geometry. */
+export function pieceId(spec: PieceSpec): string {
+  const canonical = specKey(spec);
   let hash = 0x811c9dc5;
   for (let i = 0; i < canonical.length; i++) {
     hash ^= canonical.charCodeAt(i);

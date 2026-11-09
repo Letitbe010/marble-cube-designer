@@ -18,11 +18,13 @@ import {
   type Cell,
   type Rotation,
 } from '../assembly/model';
+import { checkAssembly, type CheckIssue } from '../assembly/checks';
+import { pieceList } from '../assembly/pieceList';
 import { buildPiece } from '../geometry/piece';
 import type { PieceSpec } from '../geometry/ports';
 import { LIBRARY, PRESETS } from '../geometry/presets';
 import { AssemblyView } from './assemblyView';
-import type { StringKey } from './i18n';
+import { SHAPE_LABELS, type StringKey } from './i18n';
 import { toFlatGeometry } from './viewer';
 
 const STORAGE_KEY = 'marble-cube-assembly';
@@ -56,6 +58,7 @@ export class AssemblyController {
   private brushRotation: Rotation = 0;
   private hover: Cell | null = null;
   private importFailed = false;
+  private issues: CheckIssue[] = [];
 
   constructor(private readonly deps: AssemblyDeps) {
     this.view = new AssemblyView(deps.container, {
@@ -85,6 +88,8 @@ export class AssemblyController {
   }
 
   private syncView() {
+    this.issues = checkAssembly(this.assembly);
+    const flagged = new Set(this.issues.filter((i) => i.level === 'error').flatMap((i) => i.pieceIds));
     this.view.setPieces(
       this.assembly.pieces.map((piece) => ({
         id: piece.id,
@@ -94,6 +99,7 @@ export class AssemblyController {
         top: piece.cell[2] + heightSteps(piece.spec),
       })),
       this.selected,
+      flagged,
     );
     this.syncGhost();
   }
@@ -196,7 +202,13 @@ export class AssemblyController {
 
   /** Handles a click inside the panel. */
   handleClick(target: HTMLElement) {
-    const { asm, asmMove } = target.dataset;
+    const { asm, asmMove, asmIssue } = target.dataset;
+    if (asmIssue !== undefined) {
+      this.selected = this.issues[Number(asmIssue)]?.pieceIds[0] ?? null;
+      this.syncView();
+      this.deps.onChange();
+      return;
+    }
     if (asmMove) {
       this.move(asmMove.split(',').map(Number) as Cell);
       return;
@@ -254,6 +266,30 @@ export class AssemblyController {
     return true;
   }
 
+  private renderChecks(): string {
+    const { t } = this.deps;
+    const errors = this.issues.filter((i) => i.level === 'error').length;
+    const warnings = this.issues.length - errors;
+    const items = this.issues
+      .map((issue, i) => `<button class="notice issue ${issue.level === 'error' ? 'error' : 'warn'}" data-asm-issue="${i}">${t(`issue_${issue.code}` as StringKey)}</button>`)
+      .join('');
+    const summary = this.assembly.pieces.length === 0 ? '' : `<p class="stats">${t('asmChecksSummary', { errors: String(errors), warnings: String(warnings) })}</p>`;
+    return `<h2>${t('asmChecks')}</h2>${summary}${items || `<p class="empty">${t('asmNoIssues')}</p>`}`;
+  }
+
+  private renderList(): string {
+    const { t } = this.deps;
+    const groups = pieceList(this.assembly);
+    if (groups.length === 0) return '';
+    const rows = groups
+      .map(({ id, spec, count }) => {
+        const [x, y, z] = spec.body.size;
+        return `<li><span>${id} <small>${t(SHAPE_LABELS[spec.body.shape])} ${x * 50}×${y * 50}×${z * 50}</small></span><strong>× ${count}</strong></li>`;
+      })
+      .join('');
+    return `<h2>${t('asmList')}</h2><ul class="segments">${rows}</ul>`;
+  }
+
   render(): string {
     const { t } = this.deps;
     const button = (attr: string, label: string, enabled = true) => `<button class="btn" ${attr}${enabled ? '' : ' disabled'}>${label}</button>`;
@@ -295,6 +331,9 @@ export class AssemblyController {
         ${button('data-asm="duplicate"', t('asmDuplicate'), hasSelection)}
         ${button('data-asm="remove"', t('remove'), hasSelection)}
       </div>
+
+      ${this.renderChecks()}
+      ${this.renderList()}
 
       <h2>${t('asmAssembly')}</h2>
       <p class="stats">${t('asmCount', { count: String(this.assembly.pieces.length) })}</p>

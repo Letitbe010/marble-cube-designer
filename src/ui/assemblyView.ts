@@ -31,6 +31,7 @@ export class AssemblyView {
   private readonly meshes = new Map<string, THREE.Mesh>();
   private readonly material = new THREE.MeshStandardMaterial({ color: WOOD, roughness: 0.75, flatShading: true });
   private readonly selectedMaterial = new THREE.MeshStandardMaterial({ color: 0xe6c79a, emissive: 0x1f5fbf, emissiveIntensity: 0.45, roughness: 0.75, flatShading: true });
+  private readonly flaggedMaterial = new THREE.MeshStandardMaterial({ color: 0xe0a39a, emissive: 0xb3261e, emissiveIntensity: 0.35, roughness: 0.75, flatShading: true });
   private readonly ghost = new THREE.Mesh(
     new THREE.BufferGeometry(),
     new THREE.MeshStandardMaterial({ color: 0x2f8f5b, transparent: true, opacity: 0.55, depthWrite: false, flatShading: true }),
@@ -128,7 +129,8 @@ export class AssemblyView {
     });
   }
 
-  setPieces(pieces: ViewPiece[], selectedId: string | null) {
+  /** Shows the pieces; those in `flagged` have an error and stand out unless selected. */
+  setPieces(pieces: ViewPiece[], selectedId: string | null, flagged: Set<string>) {
     const present = new Set(pieces.map((p) => p.id));
     for (const [id, mesh] of this.meshes) {
       if (!present.has(id)) {
@@ -148,7 +150,7 @@ export class AssemblyView {
       mesh.matrix.fromArray(piece.matrix);
       mesh.matrixWorldNeedsUpdate = true;
       mesh.userData = { id: piece.id, top: piece.top, base: piece.base };
-      mesh.material = piece.id === selectedId ? this.selectedMaterial : this.material;
+      mesh.material = piece.id === selectedId ? this.selectedMaterial : flagged.has(piece.id) ? this.flaggedMaterial : this.material;
     }
   }
 
