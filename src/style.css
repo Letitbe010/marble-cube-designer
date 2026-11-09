@@ -47,6 +47,7 @@ button { cursor: pointer; }
 .params { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .params label { display: flex; flex-direction: column; gap: 3px; color: var(--muted); font-size: 12px; min-width: 0; }
 .params label.full { grid-column: 1 / -1; }
+.params .add-feature { align-self: end; text-align: center; }
 .params.two { grid-template-columns: 1fr 1fr; margin-top: 6px; }
 ul.segments small { color: var(--muted); }
 .params select { min-width: 0; padding: 6px; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--text); font-size: 14px; }

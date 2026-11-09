@@ -1,4 +1,6 @@
-import { boxPiece, channel as c, type Body, type PieceSpec, type Shape } from './ports';
+import { boxPiece, channel as c, type Body, type Cavity, type CavityType, type PieceSpec, type Shape } from './ports';
+
+const cavity = (type: CavityType, size: number): Cavity => ({ type, size, cell: [0, 0] });
 
 const solid = (shape: Shape, size: [number, number, number]): PieceSpec => ({ body: { shape, size }, channels: [] });
 
@@ -43,12 +45,22 @@ export const PRESETS: Record<string, PieceSpec> = {
   rampLong3: boxPiece([c('N.T.0', 'S.M.0', LONG3)], [1, 3, 0.5]),
   waveLong3: boxPiece([c('N.T.0', 'S.M.0', LONG3, { profile: 'wave' })], [1, 3, 0.5]),
   tunnelRamp: boxPiece([c('N.T.0', 'S.M.0', box([1, 1, 1]), { section: 'tunnel' })]),
+
+  funnelTunnel: boxPiece([c('U.0', 'E.M.0')], [1, 1, 1], [cavity('funnel', 20)]),
+  funnelDrop: boxPiece([c('U.0', 'D.0')], [1, 1, 1], [cavity('funnel', 20)]),
+  stop: boxPiece([c('N.T.0', 'U.0')], [1, 1, 1], [cavity('basin', 12)]),
+  stopLow: boxPiece([c('N.T.0', 'U.0', LOW)], [1, 1, 0.5], [cavity('basin', 12)]),
+  basinCross: boxPiece([c('N.T.0', 'S.T.0'), c('E.T.0', 'W.T.0')], [1, 1, 1], [cavity('basin', 20)]),
+  basinCrossLow: boxPiece([c('N.T.0', 'S.T.0', LOW), c('E.T.0', 'W.T.0', LOW)], [1, 1, 0.5], [cavity('basin', 20)]),
+  chamberCross: boxPiece([c('N.T.0', 'S.T.0'), c('E.T.0', 'W.T.0'), c('U.0', 'D.0')], [1, 1, 1], [cavity('chamber', 20)]),
+  spiral: boxPiece([], [2, 2, 0.5], [cavity('spiral', 12)]),
 };
 
-export const LIBRARY: { category: 'catBlocks' | 'catStructures' | 'catChannels' | 'catLow' | 'catRamps'; items: string[] }[] = [
+export const LIBRARY: { category: 'catBlocks' | 'catStructures' | 'catChannels' | 'catLow' | 'catRamps' | 'catSpecial'; items: string[] }[] = [
   { category: 'catBlocks', items: ['cube', 'halfBlock', 'longBlock2', 'longBlock3', 'plate'] },
   { category: 'catChannels', items: ['straightTop', 'curveTop', 'crossTop', 'drop', 'straightTunnel', 'curveTunnel', 'topToTunnel', 'underside', 'double'] },
   { category: 'catRamps', items: ['rampStraight', 'rampLow', 'rampCurve', 'rampCurveLow', 'rampLong2', 'rampLong3', 'waveLong3', 'tunnelRamp'] },
+  { category: 'catSpecial', items: ['funnelTunnel', 'funnelDrop', 'stop', 'stopLow', 'basinCross', 'basinCrossLow', 'chamberCross', 'spiral'] },
   { category: 'catLow', items: ['halfGroove', 'halfCurve', 'longGroove2', 'longGroove3', 'longTunnel2'] },
   { category: 'catStructures', items: ['cylinder', 'halfRound', 'arch', 'roof'] },
 ];

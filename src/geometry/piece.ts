@@ -1,5 +1,6 @@
 import type { Manifold, ManifoldToplevel } from 'manifold-3d';
 import { buildBody } from './body';
+import { buildCavityCutters, type Sweep } from './cavities';
 import { boreRadius, CONFIG, ROOF_PEAK_FACTOR } from './config';
 import { channelPath } from './paths';
 import type { PieceSpec, Vec3 } from './ports';
@@ -19,11 +20,11 @@ export interface BuildOptions {
   sliceThickness?: number;
 }
 
-/** Height added above an open groove so the cut clears the top of the piece. */
+/** Height added above an open channel so the cut clears the top of the piece. */
 const SLOT_HEIGHT = 20;
 
-/** Sweeps a ball along each channel, returning one cutter per path step. */
-function buildCutters(wasm: ManifoldToplevel, spec: PieceSpec): Manifold[] {
+/** Prepares the ball-sweeping tool, returning one cutter per path step. */
+function createSweep(wasm: ManifoldToplevel): Sweep {
   const sphere = wasm.Manifold.sphere(boreRadius(), CONFIG.sphereSegments);
   const mesh = sphere.getMesh();
   sphere.delete();
@@ -33,13 +34,12 @@ function buildCutters(wasm: ManifoldToplevel, spec: PieceSpec): Manifold[] {
   }
   const place = (at: Vec3, dz = 0): Vec3[] => shell.map((v) => [v[0] + at[0], v[1] + at[1], v[2] + at[2] + dz]);
 
-  const cutters: Manifold[] = [];
-  for (const channel of spec.channels) {
-    const path = channelPath(channel, spec.body);
+  return (path, open) => {
+    const cutters: Manifold[] = [];
     for (let i = 0; i < path.length - 1; i++) {
       const [a, b] = [path[i], path[i + 1]];
       const points = [...place(a), ...place(b)];
-      if (channel.section === 'groove' || channel.section === 'slot') {
+      if (open) {
         points.push(...place(a, SLOT_HEIGHT), ...place(b, SLOT_HEIGHT));
       } else {
         // Teardrop roof: closed bores print without supports at a 45 degree overhang.
@@ -48,8 +48,8 @@ function buildCutters(wasm: ManifoldToplevel, spec: PieceSpec): Manifold[] {
       }
       cutters.push(wasm.Manifold.hull(points));
     }
-  }
-  return cutters;
+    return cutters;
+  };
 }
 
 /** Builds the printable solid for a piece. */
@@ -62,10 +62,12 @@ export function buildPiece(wasm: ManifoldToplevel, spec: PieceSpec, options: Bui
   try {
     let solid = keep(buildBody(wasm, spec.body));
 
-    if (spec.channels.length) {
-      const cutters = buildCutters(wasm, spec).map(keep);
-      solid = keep(solid.subtract(keep(Manifold.union(cutters))));
-    }
+    const sweep = createSweep(wasm);
+    const cutters = [
+      ...spec.channels.flatMap((c) => sweep(channelPath(c, spec.body), c.section === 'groove' || c.section === 'slot')),
+      ...(spec.cavities ?? []).flatMap((cavity) => buildCavityCutters(wasm, cavity, spec.body, sweep)),
+    ].map(keep);
+    if (cutters.length) solid = keep(solid.subtract(keep(Manifold.union(cutters))));
 
     if (options.sliceThickness) {
       const t = options.sliceThickness;

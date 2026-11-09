@@ -1,7 +1,8 @@
 import type { ManifoldToplevel } from 'manifold-3d';
 import './style.css';
 import { buildPiece, type BuildResult } from './geometry/piece';
-import { channel, normalizeBody, portsFor, SHAPES, UNIT_BODY, type Body, type Channel, type PieceSpec, type Port, type Shape } from './geometry/ports';
+import { CAVITY_SIZES, cavityFits } from './geometry/cavities';
+import { CAVITY_TYPES, channel, normalizeBody, portsFor, SHAPES, UNIT_BODY, type Body, type Cavity, type CavityType, type Channel, type PieceSpec, type Port, type Shape } from './geometry/ports';
 import { CALIBRATION, CALIBRATION_THICKNESS, LIBRARY, PRESETS } from './geometry/presets';
 import { toBinaryStl } from './geometry/stl';
 import { adaptChannels, validateDesign, type IssueCode } from './geometry/validate';
@@ -15,6 +16,12 @@ const STORAGE_KEY = 'marble-cube-designer';
 const WIDTHS = [1, 2];
 const LENGTHS = [1, 2, 3];
 const HEIGHTS = [0.5, 1, 1.5, 2];
+const CAVITY_LABELS: Record<CavityType, StringKey> = {
+  funnel: 'cavityFunnel',
+  basin: 'cavityBasin',
+  chamber: 'cavityChamber',
+  spiral: 'cavitySpiral',
+};
 const SHAPE_LABELS: Record<Shape, StringKey> = {
   box: 'shapeBox',
   cylinder: 'shapeCylinder',
@@ -59,8 +66,9 @@ function load(): Saved {
       stored.map((s) => ({ ...s, from: migratePort(s.from), to: migratePort(s.to) }) as Channel),
       body,
     );
+    const cavities = ((data.spec?.cavities ?? []) as Cavity[]).filter((c) => CAVITY_TYPES.includes(c.type) && cavityFits(c, body));
     const lang = LANGS.includes(data.lang) ? (data.lang as Lang) : fallback.lang;
-    return { lang, spec: { body, channels } };
+    return { lang, spec: { body, channels, cavities } };
   } catch {
     return fallback;
   }
@@ -75,6 +83,9 @@ const state = {
   to: 'S.T.0' as Port,
   section: 'auto' as SectionChoice,
   profile: 'linear' as ProfileChoice,
+  cavityType: 'funnel' as CavityType,
+  cavitySize: 20,
+  cavityCell: [0, 0] as [number, number],
   seeThrough: false,
   rejected: null as IssueCode | null,
   buildFailed: false,
@@ -130,11 +141,27 @@ function setSpec(spec: PieceSpec) {
   render();
 }
 
-const setChannels = (channels: Channel[]) => setSpec({ body: state.spec.body, channels });
+const setChannels = (channels: Channel[]) => setSpec({ ...state.spec, channels });
+const setCavities = (cavities: Cavity[]) => setSpec({ ...state.spec, cavities });
 
 function setBody(next: Body) {
   const body = normalizeBody(next);
-  setSpec({ body, channels: adaptChannels(state.spec.channels, body) });
+  setSpec({
+    body,
+    channels: adaptChannels(state.spec.channels, body),
+    cavities: (state.spec.cavities ?? []).filter((c) => cavityFits(c, body)),
+  });
+}
+
+function addCavity() {
+  const added: Cavity = { type: state.cavityType, size: state.cavitySize, cell: state.cavityCell };
+  const cavities = [...(state.spec.cavities ?? []), added];
+  if (!cavityFits(added, state.spec.body)) {
+    state.rejected = 'badCavity';
+    render();
+    return;
+  }
+  setCavities(cavities);
 }
 
 /** Builds a channel using the section and profile chosen in the editor. */
@@ -147,7 +174,7 @@ function newChannel(from: Port, to: Port): Channel {
 
 function addChannel(added: Channel) {
   const candidate = [...state.spec.channels, added];
-  const blocking = validateDesign({ body: state.spec.body, channels: candidate }).find((issue) => issue.code !== 'thinWall');
+  const blocking = validateDesign({ ...state.spec, channels: candidate }).find((issue) => issue.code !== 'thinWall');
   if (blocking) {
     state.rejected = blocking.code;
     render();
@@ -180,9 +207,9 @@ function download(buffer: ArrayBuffer, name: string) {
 
 function exportPiece() {
   if (!state.result) return;
-  const { body, channels } = state.spec;
+  const { body, channels, cavities = [] } = state.spec;
   const id = channels.map((s) => `${s.from}-${s.to}`.replace(/\.0/g, '').replace(/\./g, '')).join('_');
-  const name = [`${body.shape}-${body.size.join('x')}`, id].filter(Boolean).join('-');
+  const name = [`${body.shape}-${body.size.join('x')}`, id, ...cavities.map((c) => c.type)].filter(Boolean).join('-');
   download(toBinaryStl(state.result.positions, state.result.triangles, name), `${name}.stl`);
 }
 
@@ -211,6 +238,33 @@ function renderBodyEditor(body: Body): string {
       <label>${t('length')}<select id="sizeY"${body.shape === 'cylinder' ? ' disabled' : ''}>${sizeOptions(LENGTHS, y)}</select></label>
       <label>${t('height')}<select id="sizeZ">${sizeOptions(HEIGHTS, z)}</select></label>
     </div>`;
+}
+
+function renderCavityEditor(spec: PieceSpec): string {
+  if (spec.body.shape !== 'box') return '';
+  const [width, length] = spec.body.size;
+  const cavities = spec.cavities ?? [];
+  const spiral = state.cavityType === 'spiral';
+  const cells: string[] = [];
+  for (let j = 0; j < length; j++) for (let i = 0; i < width; i++) cells.push(`${i},${j}`);
+  const selectedCell = state.cavityCell.join(',');
+  return `
+    <h2>${t('features')}</h2>
+    <div class="params">
+      <label class="full">${t('featureType')}<select id="cavityType">
+        ${CAVITY_TYPES.map((type) => `<option value="${type}"${type === state.cavityType ? ' selected' : ''}>${t(CAVITY_LABELS[type])}</option>`).join('')}
+      </select></label>
+      <label>${t('featureSize')}<select id="cavitySize"${spiral ? ' disabled' : ''}>
+        ${CAVITY_SIZES.map((s) => `<option value="${s}"${s === state.cavitySize ? ' selected' : ''}>Ø ${s * 2} mm</option>`).join('')}
+      </select></label>
+      ${cells.length > 1 && !spiral ? `<label>${t('featureCell')}<select id="cavityCell">
+        ${cells.map((cell) => `<option value="${cell}"${cell === selectedCell ? ' selected' : ''}>${cell.replace(',', ' · ')}</option>`).join('')}
+      </select></label>` : ''}
+      <button class="btn add-feature" id="addCavity">${t('add')}</button>
+    </div>
+    ${cavities.length ? `<ul class="segments">
+      ${cavities.map((c, i) => `<li><span>${t(CAVITY_LABELS[c.type])}${c.type === 'spiral' ? '' : ` <small>Ø ${c.size * 2} mm</small>`}</span><button data-remove-cavity="${i}" title="${t('remove')}" aria-label="${t('remove')}">×</button></li>`).join('')}
+    </ul>` : ''}`;
 }
 
 function renderChannelEditor(spec: PieceSpec, ports: Port[], notices: string): string {
@@ -273,6 +327,7 @@ function render() {
 
     ${renderBodyEditor(spec.body)}
     ${renderChannelEditor(spec, ports, notices)}
+    ${renderCavityEditor(spec)}
     <label class="toggle"><input type="checkbox" id="xray"${state.seeThrough ? ' checked' : ''} /> ${t('xray')}</label>
 
     <h2>${t('export')}</h2>
@@ -288,7 +343,7 @@ function render() {
 panel.addEventListener('click', (event) => {
   const target = (event.target as HTMLElement).closest<HTMLElement>('button');
   if (!target) return;
-  const { lang, preset, remove } = target.dataset;
+  const { lang, preset, remove, removeCavity } = target.dataset;
 
   if (lang) {
     state.lang = lang as Lang;
@@ -298,6 +353,10 @@ panel.addEventListener('click', (event) => {
     setSpec(PRESETS[preset]);
   } else if (remove !== undefined) {
     setChannels(state.spec.channels.filter((_, i) => i !== Number(remove)));
+  } else if (removeCavity !== undefined) {
+    setCavities((state.spec.cavities ?? []).filter((_, i) => i !== Number(removeCavity)));
+  } else if (target.id === 'addCavity') {
+    addCavity();
   } else if (target.id === 'add') {
     addChannel(newChannel(state.from, state.to));
   } else if (target.id === 'clear') {
@@ -316,6 +375,11 @@ panel.addEventListener('change', (event) => {
 
   if (target.id === 'from') state.from = target.value as Port;
   else if (target.id === 'to') state.to = target.value as Port;
+  else if (target.id === 'cavityType') {
+    state.cavityType = target.value as CavityType;
+    render();
+  } else if (target.id === 'cavitySize') state.cavitySize = Number(target.value);
+  else if (target.id === 'cavityCell') state.cavityCell = target.value.split(',').map(Number) as [number, number];
   else if (target.id === 'section') state.section = target.value as SectionChoice;
   else if (target.id === 'profile') state.profile = target.value as ProfileChoice;
   else if (target.id === 'shape') setBody({ shape: target.value as Shape, size: [x, y, z] });

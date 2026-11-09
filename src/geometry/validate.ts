@@ -1,3 +1,4 @@
+import { cavityFits } from './cavities';
 import { boreRadius, CONFIG } from './config';
 import { channelPath } from './paths';
 import {
@@ -14,7 +15,7 @@ import {
   type Vec3,
 } from './ports';
 
-export type IssueCode = 'samePort' | 'sameFace' | 'duplicate' | 'badSection' | 'thinWall';
+export type IssueCode = 'samePort' | 'sameFace' | 'duplicate' | 'badSection' | 'badCavity' | 'thinWall';
 
 export interface Issue {
   code: IssueCode;
@@ -79,7 +80,7 @@ export function adaptChannels(channels: Pick<Channel, 'from' | 'to' | 'section' 
 }
 
 /** Checks a design for impossible channels and walls too thin to print. */
-export function validateDesign({ body, channels }: PieceSpec): Issue[] {
+export function validateDesign({ body, channels, cavities = [] }: PieceSpec): Issue[] {
   const issues: Issue[] = [];
   const seen = new Map<string, number>();
 
@@ -94,6 +95,9 @@ export function validateDesign({ body, channels }: PieceSpec): Issue[] {
     const previous = seen.get(key);
     if (previous !== undefined) issues.push({ code: 'duplicate', segments: [previous, i] });
     else seen.set(key, i);
+  });
+  cavities.forEach((cavity, i) => {
+    if (!cavityFits(cavity, body)) issues.push({ code: 'badCavity', segments: [i] });
   });
   if (issues.length) return issues;
 

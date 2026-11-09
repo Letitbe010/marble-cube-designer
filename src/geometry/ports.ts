@@ -32,9 +32,21 @@ export interface ChannelOptions {
   profile?: Profile;
 }
 
+export const CAVITY_TYPES = ['funnel', 'basin', 'chamber', 'spiral'] as const;
+export type CavityType = (typeof CAVITY_TYPES)[number];
+
+export interface Cavity {
+  type: CavityType;
+  /** Radius in millimetres; ignored by the spiral, which fills its plate. */
+  size: number;
+  /** Grid cell holding the cavity; ignored by the spiral. */
+  cell: [number, number];
+}
+
 export interface PieceSpec {
   body: Body;
   channels: Channel[];
+  cavities?: Cavity[];
 }
 
 export const UNIT_BODY: Body = { shape: 'box', size: [1, 1, 1] };
@@ -136,8 +148,8 @@ export function channel(from: Port, to: Port, body: Body = UNIT_BODY, options: C
   };
 }
 
-export function boxPiece(channels: Channel[], size: Body['size'] = [1, 1, 1]): PieceSpec {
-  return { body: { shape: 'box', size }, channels };
+export function boxPiece(channels: Channel[], size: Body['size'] = [1, 1, 1], cavities: Cavity[] = []): PieceSpec {
+  return { body: { shape: 'box', size }, channels, cavities };
 }
 
 /** Applies shape constraints: a cylinder's length always equals its width. */

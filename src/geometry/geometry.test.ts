@@ -1,9 +1,10 @@
 import Module, { type ManifoldToplevel } from 'manifold-3d';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { cavityFits, spiralPath } from './cavities';
 import { boreRadius, checkLevels, CONFIG } from './config';
 import { channelPath } from './paths';
 import { buildPiece } from './piece';
-import { ALL_PORTS, boxPiece, channel, isVertical, parseSide, portPosition, portsFor, UNIT_BODY, type Body, type Port, type Shape } from './ports';
+import { ALL_PORTS, boxPiece, channel, isVertical, parseSide, portPosition, portsFor, UNIT_BODY, type Body, type Cavity, type CavityType, type Port, type Shape } from './ports';
 import { CALIBRATION, CALIBRATION_THICKNESS, PRESETS } from './presets';
 import { toBinaryStl } from './stl';
 import { adaptChannels, validateDesign } from './validate';
@@ -237,6 +238,60 @@ describe('bodies', () => {
     const ys = path.map((p) => p[1]);
     expect(Math.max(...ys)).toBeCloseTo(151, 3);
     expect(Math.min(...ys)).toBeCloseTo(-1, 3);
+  });
+});
+
+describe('cavities', () => {
+  const cavity = (type: CavityType, size = 20, cell: [number, number] = [0, 0]): Cavity => ({ type, size, cell });
+
+  it('each cavity removes material from a cube', () => {
+    const blank = buildPiece(wasm, boxPiece([])).volume;
+    for (const type of ['funnel', 'basin', 'chamber'] as const) {
+      const result = buildPiece(wasm, boxPiece([], [1, 1, 1], [cavity(type)]));
+      expect(result.volume, type).toBeLessThan(blank);
+      expect(result.pieces, type).toBe(1);
+    }
+  });
+
+  it('places a cavity in the requested cell of a long piece', () => {
+    const near = buildPiece(wasm, boxPiece([], [1, 3, 1], [cavity('basin', 20, [0, 0])]));
+    const far = buildPiece(wasm, boxPiece([], [1, 3, 1], [cavity('basin', 20, [0, 2])]));
+    expect(far.volume).toBeCloseTo(near.volume, 1);
+    const lowestY = (r: typeof near) => {
+      let y = Infinity;
+      for (let i = 0; i < r.positions.length; i += 3) if (r.positions[i + 2] < 49 && r.positions[i + 2] > 30) y = Math.min(y, r.positions[i + 1]);
+      return y;
+    };
+    expect(lowestY(far)).toBeGreaterThan(lowestY(near));
+  });
+
+  it('rejects cavities that do not fit', () => {
+    const body = UNIT_BODY;
+    expect(cavityFits(cavity('funnel', 24), body)).toBe(false);
+    expect(cavityFits(cavity('funnel', 8), body)).toBe(false);
+    expect(cavityFits(cavity('basin', 20, [1, 0]), body)).toBe(false);
+    expect(cavityFits(cavity('spiral'), body)).toBe(false);
+    expect(cavityFits(cavity('chamber'), LOW_BODY)).toBe(false);
+    expect(cavityFits(cavity('basin'), { shape: 'cylinder', size: [1, 1, 1] })).toBe(false);
+    expect(validateDesign(boxPiece([], [1, 1, 0.5], [cavity('chamber')]))[0].code).toBe('badCavity');
+  });
+
+  it('winds the spiral steadily downward to the centre', () => {
+    const body = PRESETS.spiral.body;
+    const path = spiralPath(body);
+    path.slice(1).forEach((p, i) => expect(p[2]).toBeLessThanOrEqual(path[i][2] + 1e-9));
+    const end = path[path.length - 1];
+    expect(end[0]).toBeCloseTo(50, 6);
+    expect(end[1]).toBeCloseTo(50, 6);
+  });
+
+  it('keeps the spiral arms apart by a printable wall', () => {
+    const path = spiralPath(PRESETS.spiral.body).slice(2);
+    const onePitch = 48; // path points in one full turn
+    const gap = Math.min(
+      ...path.slice(0, -onePitch).map((p, i) => Math.hypot(p[0] - path[i + onePitch][0], p[1] - path[i + onePitch][1])),
+    );
+    expect(gap).toBeGreaterThanOrEqual(2 * boreRadius() + 2.5);
   });
 });
 
