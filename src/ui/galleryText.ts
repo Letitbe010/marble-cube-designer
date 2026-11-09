@@ -106,6 +106,11 @@ export const GALLERY_TEXT: Record<string, Record<Lang, Text>> = {
     es: { name: 'El lanzador', note: 'Un péndulo lanza la canica, que sube por una rampa.' },
     en: { name: 'The launcher', note: 'A pendulum launches the marble up a ramp.' },
   },
+  catapult: {
+    eu: { name: 'Katapulta', note: 'Bultzagailuak kanika malda batean gora botatzen du, eta tuneletatik behera itzultzen da.' },
+    es: { name: 'La catapulta', note: 'El lanzador sube la canica por una rampa, y vuelve a bajar por túneles.' },
+    en: { name: 'The catapult', note: 'The launcher sends the marble up a ramp, and it comes back down through tunnels.' },
+  },
   castle: {
     eu: { name: 'Gaztelua', note: 'Dorre bat eta bidea bere azpitik itzultzen da.' },
     es: { name: 'El castillo', note: 'Una torre con el camino que vuelve por debajo de sí mismo.' },

@@ -67,6 +67,11 @@ class Draft {
     return this.pieces.pieces[this.pieces.pieces.length - 1];
   }
 
+  /** Starts a track at a side exit of a piece already placed. */
+  after(piece: PlacedPiece, exit: Port): Line {
+    return new Line(this).through(piece, exit);
+  }
+
   line(key: string, cell: Cell, heading: Face): Line {
     return new Line(this).begin(key, cell, FACE_DIR[heading]);
   }
@@ -343,6 +348,13 @@ export const GALLERY: GalleryItem[] = [
     d.place('pendulum', [5, 7, 0]);
     d.place('rampClimb', [5, 6, 0]);
     d.place('stop', [5, 5, 0]);
+  }),
+
+  make('catapult', 'showpiece', (d) => {
+    d.after(d.place('pendulum', [5, 9, 2]), 'S.M.0')
+      .to('rampClimb').to('straightTop').to('rampStraight')
+      .to('curveTunnel').to('straightTunnel').to('rampStraight')
+      .to('curveTunnel').to('rampStraight').to('stopLow');
   }),
 
   make('castle', 'showpiece', (d) => {
