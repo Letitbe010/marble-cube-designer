@@ -10,14 +10,14 @@ export type VerticalPort = `${'U' | 'D'}.0`;
 export type Port = SidePort | VerticalPort;
 export type Vec3 = [number, number, number];
 
-export const SHAPES = ['box', 'cylinder', 'halfCylinder', 'arch', 'roof', 'leanRamp', 'seesaw', 'pendulum'] as const;
+export const SHAPES = ['box', 'cylinder', 'halfCylinder', 'arch', 'roof', 'leanRamp', 'seesaw', 'pendulum', 'lift'] as const;
 export type Shape = (typeof SHAPES)[number];
 
 /** Shapes with their own fixed design, which come from the library and are not edited. */
-export const isSpecialShape = (shape: Shape) => shape === 'leanRamp' || shape === 'seesaw' || shape === 'pendulum';
+export const isSpecialShape = (shape: Shape) => shape === 'leanRamp' || shape === 'seesaw' || shape === 'pendulum' || shape === 'lift';
 
 /** Shapes printed as a frame and a separate part that moves in it. */
-export const hasMovingPart = (shape: Shape) => shape === 'seesaw' || shape === 'pendulum';
+export const hasMovingPart = (shape: Shape) => shape === 'seesaw' || shape === 'pendulum' || shape === 'lift';
 
 export interface Body {
   shape: Shape;

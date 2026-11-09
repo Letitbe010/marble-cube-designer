@@ -12,6 +12,7 @@ export const SHAPE_LABELS = {
   leanRamp: 'shapeLeanRamp',
   seesaw: 'shapeSeesaw',
   pendulum: 'shapePendulum',
+  lift: 'shapeLift',
 } as const;
 export const LANGS: Lang[] = ['eu', 'es', 'en'];
 
@@ -93,6 +94,9 @@ const STRINGS = {
     rampClimb: 'Igoera',
     specialPendulum: 'Pendulu bat: besoa altxatu eta askatzean, kanika jotzen du. Bi zatitan inprimatzen da, eta ardatza 1,75 mm-ko filamentua da. Buruko poltsan pisua gehi daiteke. Simulazioan abiadura finko bat da.',
     cal_launchSpeed: 'Bultzagailuaren abiadura (mm/s)',
+    liftTest: 'Igogailu-probeta',
+    shapeLift: 'Igogailua',
+    specialLift: 'Kanika-igogailuaren lehen proba, motorrik gabe. Bi zatitan inprimatzen da: hodia (base) eta torlojua (arm), biak zutik. 1,75 mm-ko filamentu-zati bat da pibotea. Sartu kanika beheko zulotik eta biratu torlojua eskuz, goitik begiratuta erlojuaren orratzen noranzkoan. Oraindik ez dago simulatuta.',
     tabSimulation: 'Simulazioa',
     simHint: 'Muntaia hiru aldiz probatzen da, errodadura-erresistentzia ezberdinekin.',
     simResult: 'Emaitza',
@@ -338,6 +342,9 @@ const STRINGS = {
     rampClimb: 'Subida',
     specialPendulum: 'Un péndulo: al levantar y soltar el brazo, golpea la canica. Se imprime en dos partes y el eje es filamento de 1,75 mm. En el hueco de la cabeza se puede añadir peso. En la simulación es una velocidad fija.',
     cal_launchSpeed: 'Velocidad del lanzador (mm/s)',
+    liftTest: 'Probeta de elevador',
+    shapeLift: 'Elevador',
+    specialLift: 'Primera prueba del elevador de canicas, sin motor. Se imprime en dos partes, tubo (base) y tornillo (arm), ambas de pie. Un trozo de filamento de 1,75 mm hace de pivote. Mete la canica por el agujero inferior y gira el tornillo a mano, en sentido horario visto desde arriba. Aún no está simulado.',
     tabSimulation: 'Simulación',
     simHint: 'El montaje se prueba tres veces, con distinta resistencia a la rodadura.',
     simResult: 'Resultado',
@@ -583,6 +590,9 @@ const STRINGS = {
     rampClimb: 'Climb',
     specialPendulum: 'A pendulum: lift the arm and let go, and it strikes the marble. It prints in two parts and the axle is 1.75 mm filament. Weight can be added in the pocket of the head. In the simulation it is a fixed speed.',
     cal_launchSpeed: 'Launcher speed (mm/s)',
+    liftTest: 'Lift test piece',
+    shapeLift: 'Lift',
+    specialLift: 'First test of the marble lift, without a motor. It prints in two parts, tube (base) and screw (arm), both standing. A piece of 1.75 mm filament is the pivot. Put the marble in the lower hole and turn the screw by hand, clockwise seen from above. Not simulated yet.',
     tabSimulation: 'Simulation',
     simHint: 'The assembly is tried three times, with different rolling resistance.',
     simResult: 'Result',

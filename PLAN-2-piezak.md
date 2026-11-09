@@ -116,6 +116,8 @@ Helburua: kanikak zirkuituaren amaieratik hasierara igotzea, begizta jarraituak 
 
 **Faseak:** (1) kanika bakarreko torloju-probeta, motorrik gabe; (2) motorra eta iturria; (3) sentsorea eta Arduinoa; (4) liburutegiko pieza eta simulazioan abiadura-iturri gisa; (5) begizta osoa ordubetez probatu.
 
+**Egoera (2026-11-09):** 1. fasea eginda dago aplikazioan: igogailu-probeta bat (2 × 2 × 3, hodia eta eskuzko torlojua), kanika 25 mm-tik 125 mm-ra igotzeko. Geometria testetan egiaztatuta dago; ez da inprimatu. 2-5 faseak probeta horren emaitzaren zain daude: torlojuak kanika igotzen ez badu, motorra eta elektronika ez dira diseinatu behar.
+
 **Erabaki gabe:** motor mota, elikadura, altuera maximoa, eta aplikazioak elektronikaren programa eman behar duen ala ez.
 
 ## 3. Estaldura

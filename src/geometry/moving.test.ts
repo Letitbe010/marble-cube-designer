@@ -6,7 +6,8 @@ import { exportAssemblyZip } from '../assembly/export';
 import { addPiece, EMPTY_ASSEMBLY, type Assembly, type Cell, type Rotation } from '../assembly/model';
 import { simulateAssembly } from '../simulation/marble';
 import { CONFIG } from './config';
-import { buildMovingPart, buildPendulumArm, buildSeesawArm, leanSeat, pendulumSeatY } from './moving';
+import { boreRadius } from './config';
+import { buildLiftScrew, buildMovingPart, buildPendulumArm, buildSeesawArm, leanSeat, LIFT, liftKeywayY, pendulumSeatY } from './moving';
 import { buildPiece, buildSolid } from './piece';
 import { type PieceSpec } from './ports';
 import { PRESETS } from './presets';
@@ -178,6 +179,86 @@ describe('pendulum launcher', () => {
     const limit = Math.sqrt(2 * (5 / 7) * 9810 * 25);
     expect(simulateAssembly(track, { launchSpeed: limit * 0.9, crr: 0, jointRetention: 1 })[0].outcome).toBe('stopped');
     expect(simulateAssembly(track, { launchSpeed: limit * 1.1, crr: 0, jointRetention: 1 })[0].outcome).toBe('finished');
+  });
+});
+
+describe('screw lift test piece', () => {
+  const spec = PRESETS.liftTest;
+  const tube = () => buildSolid(wasm, spec, { omitMoving: true });
+
+  /** The screw as assembled, turned around its axis. */
+  function turned(degrees: number): Manifold {
+    const screw = buildLiftScrew(wasm);
+    const spun = screw.rotate([0, 0, degrees]);
+    const placed = spun.translate([LIFT.axis, LIFT.axis, LIFT.floor + LIFT.gap]);
+    [screw, spun].forEach((m) => m.delete());
+    return placed;
+  }
+
+  const marble = (z: number) => wasm.Manifold.sphere(CONFIG.ballDiameter / 2, 32).translate([LIFT.keywayX, liftKeywayY(), z]);
+
+  /** Height of the thread's top surface below the keyway, on the turn nearest a height. */
+  function threadHeight(degrees: number, turn: number) {
+    const keyway = (Math.atan2(liftKeywayY() - LIFT.axis, LIFT.keywayX - LIFT.axis) * 180) / Math.PI;
+    const relative = (((keyway - degrees) % 360) + 360) % 360;
+    return LIFT.floor + LIFT.gap + LIFT.gap + ((relative / 360 + turn) * LIFT.pitch);
+  }
+
+  it('is a tube and a separate screw', () => {
+    expect(buildPiece(wasm, spec).pieces).toBe(2);
+  });
+
+  it('lets the screw turn freely in the tube', () => {
+    for (const degrees of [0, 37, 90, 200, 311]) expect(shared(tube(), turned(degrees)), `${degrees}°`).toBeLessThan(0.01);
+  });
+
+  it('places the marble on a grid cell at the inlet and the outlet', () => {
+    expect(LIFT.keywayX % CONFIG.cubeSize).toBe(25);
+    expect(Math.hypot(LIFT.keywayX - LIFT.axis, liftKeywayY() - LIFT.axis)).toBeCloseTo(LIFT.ballRadius, 6);
+  });
+
+  it('holds the marble in the slot from bottom to top', () => {
+    for (const z of [LIFT.inletZ, 50, 80, 110, LIFT.outletZ]) expect(shared(tube(), marble(z)), `z ${z}`).toBeLessThan(0.01);
+  });
+
+  it('leaves the marble room between the turns of the thread', () => {
+    for (const degrees of [0, 120, 240]) {
+      const z = threadHeight(degrees, 1) + CONFIG.ballDiameter / 2 + 0.3;
+      expect(shared(turned(degrees), marble(z)), `${degrees}°`).toBeLessThan(0.5);
+    }
+  });
+
+  it('lifts the marble as high as the outlet', () => {
+    expect(LIFT.threadTop + CONFIG.ballDiameter / 2).toBeGreaterThanOrEqual(LIFT.outletZ + LIFT.outletRise);
+  });
+
+  it('rests the marble over the thread, inside its outer edge', () => {
+    expect(LIFT.ballRadius).toBeLessThan(LIFT.threadRadius);
+    expect(LIFT.ballRadius + boreRadius()).toBeGreaterThan(LIFT.boreRadius);
+  });
+
+  it('prints as two upright parts', () => {
+    const { parts } = buildPrintParts(wasm, spec);
+    expect(parts).toHaveLength(2);
+    parts.forEach((part) => {
+      expect(part.result.pieces).toBe(1);
+      expect(zRange(part.result.positions)[0]).toBeCloseTo(0, 4);
+    });
+  });
+
+  it('prints the screw without overhangs steeper than 45 degrees', () => {
+    const { positions: p, triangles } = buildPrintParts(wasm, spec).parts[1].result;
+    let worst = 0;
+    for (let i = 0; i < triangles.length; i += 3) {
+      const [a, b, c] = [triangles[i] * 3, triangles[i + 1] * 3, triangles[i + 2] * 3];
+      if (Math.max(p[a + 2], p[b + 2], p[c + 2]) < 1e-3) continue;
+      const u = [p[b] - p[a], p[b + 1] - p[a + 1], p[b + 2] - p[a + 2]];
+      const v = [p[c] - p[a], p[c + 1] - p[a + 1], p[c + 2] - p[a + 2]];
+      const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+      const length = Math.hypot(n[0], n[1], n[2]);
+      if (length > 1e-6) worst = Math.min(worst, n[2] / length);
+    }
+    expect(worst).toBeGreaterThanOrEqual(-0.71);
   });
 });
 

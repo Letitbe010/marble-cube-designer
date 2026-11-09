@@ -83,6 +83,7 @@ Object.assign(PRESETS, {
   leanRamp3: lean([1, 3, 2]),
   seesaw: solid('seesaw', [1, 3, 1]),
   pendulum: solid('pendulum', [1, 2, 2]),
+  liftTest: solid('lift', [2, 2, 3]),
   rampClimb: boxPiece([c('N.M.0', 'S.T.0', box([1, 1, 1]), { profile: 'climb' })]),
   rampOneLane: boxPiece([c('N.T.-1', 'S.M.-1')]),
   doubleStraight: boxPiece(pair('N.T', 'S.T')),
@@ -105,7 +106,7 @@ export const LIBRARY: { category: 'catBlocks' | 'catStructures' | 'catChannels' 
   { category: 'catRamps', items: ['rampStraight', 'rampLow', 'rampCurve', 'rampCurveMirror', 'rampCurveLow', 'rampCurveLowMirror', 'rampLong2', 'rampLong3', 'waveLong3', 'tunnelRamp'] },
   { category: 'catSpecial', items: ['start', 'startLow', 'funnelTunnel', 'funnelDrop', 'stop', 'stopLow', 'basinCross', 'basinCrossLow', 'chamberCross', 'chamberDrop', 'spiral', 'spiralMirror'] },
   { category: 'catDouble', items: ['rampOneLane', 'doubleStraight', 'doubleTunnel', 'doubleRamp', 'doubleCurve', 'doubleOverTunnel', 'doubleLow', 'yMerge', 'yMergeRamp', 'laneShift', 'tunnelShift', 'twinIntoHole'] },
-  { category: 'catMoving', items: ['leanRamp2', 'leanRamp3', 'seesaw', 'pendulum', 'rampClimb'] },
+  { category: 'catMoving', items: ['leanRamp2', 'leanRamp3', 'seesaw', 'pendulum', 'rampClimb', 'liftTest'] },
   { category: 'catLow', items: ['halfGroove', 'halfCurve', 'longGroove2', 'longGroove3', 'longTunnel2'] },
   { category: 'catStructures', items: ['cylinder', 'halfRound', 'arch', 'roof'] },
 ];

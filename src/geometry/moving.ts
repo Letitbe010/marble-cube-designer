@@ -254,8 +254,120 @@ export function buildPendulumArm(wasm: ManifoldToplevel, assembled = false): Man
   return placed;
 }
 
+/** Screw lift test piece, in millimetres, for its 2 × 2 × 3 body. */
+export const LIFT = {
+  axis: 50,
+  /** Radius of the marble's centre on the thread, placed so that the inlet meets a cell centre. */
+  ballRadius: 36,
+  keywayX: 75,
+  threadRadius: 38,
+  boreRadius: 38.5,
+  coreRadius: 24,
+  pitch: 25,
+  /** Height of the floor the marble waits on, which is the bottom of a channel at 25 mm. */
+  floor: 16.5,
+  /** Gap between the floor and the first turn of the thread. */
+  gap: 0.5,
+  threadTop: 119,
+  inletZ: 25,
+  outletZ: 125,
+  /** The marble is lifted slightly above the outlet, so that it rolls out. */
+  outletRise: 2,
+  grip: 15,
+  pivotDepth: 8,
+};
+
+export const liftKeywayY = () => LIFT.axis - Math.sqrt(LIFT.ballRadius ** 2 - (LIFT.keywayX - LIFT.axis) ** 2);
+
+/** The fixed tube: a bore for the screw and a vertical slot that stops the marble turning with it. */
+export function buildLiftTube(wasm: ManifoldToplevel, body: Body): Manifold {
+  const { Manifold } = wasm;
+  const { cubeSize, fitClearance, pinClearance, pinDiameter } = CONFIG;
+  const { axis, keywayX, boreRadius: bore, floor, inletZ, outletZ, outletRise, pivotDepth } = LIFT;
+  const margin = fitClearance / 2;
+  const [spanX, spanY] = [body.size[0] * cubeSize - fitClearance, body.size[1] * cubeSize - fitClearance];
+  const height = bodyHeight(body);
+  const r = boreRadius();
+  const keywayY = liftKeywayY();
+  const top = outletZ + outletRise;
+
+  const raw = Manifold.cube([spanX, spanY, height]);
+  const block = raw.translate([margin, margin, 0]);
+
+  const place = (solid: Manifold, x: number, y: number, z: number) => {
+    const placed = solid.translate([x, y, z]);
+    solid.delete();
+    return placed;
+  };
+  const peak = r * ROOF_PEAK_FACTOR;
+  const ball = Manifold.sphere(r, 32);
+  /** A tunnel with a pointed roof between two points, on the line of the keyway. */
+  const tunnel = (zOut: number, zIn: number) => {
+    const ends = [ball.translate([keywayX, -1, zOut]), ball.translate([keywayX, keywayY, zIn])];
+    const hull = Manifold.hull([...ends, [keywayX, -1, zOut + peak], [keywayX, keywayY, zIn + peak]]);
+    ends.forEach((m) => m.delete());
+    return hull;
+  };
+
+  const tools = [
+    place(Manifold.cylinder(height - floor + 1, bore, bore, 128), axis, axis, floor),
+    place(Manifold.cylinder(top - floor, r, r, 48), keywayX, keywayY, floor),
+    place(Manifold.cylinder(r, r, 0, 48), keywayX, keywayY, top),
+    tunnel(inletZ, inletZ),
+    tunnel(outletZ, top),
+    place(Manifold.cylinder(pivotDepth + 1, (pinDiameter + pinClearance) / 2, (pinDiameter + pinClearance) / 2, 24), axis, axis, floor - pivotDepth),
+  ];
+  const union = Manifold.union(tools);
+  const result = block.subtract(union);
+  [raw, block, ball, ...tools, union].forEach((m) => m.delete());
+  return result;
+}
+
+/** The screw, standing as it prints. Its grip stands above the tube, for turning by hand. */
+export function buildLiftScrew(wasm: ManifoldToplevel, assembled = false): Manifold {
+  const { Manifold } = wasm;
+  const { pinClearance, pinDiameter } = CONFIG;
+  const { axis, threadRadius, coreRadius, pitch, floor, gap, threadTop, grip, pivotDepth } = LIFT;
+  const STEPS_PER_TURN = 48;
+  const start = gap;
+  const turns = (threadTop - floor - start) / pitch;
+  const steps = Math.round(turns * STEPS_PER_TURN);
+  const inner = coreRadius - 1;
+  // The underside falls steeply enough to print; the first turn is cut off level with the bed.
+  const underside = (threadRadius - inner) * 1.2;
+
+  const section = (i: number): Vec3[] => {
+    const angle = (i / STEPS_PER_TURN) * 2 * Math.PI;
+    const z = start + (i / STEPS_PER_TURN) * pitch;
+    const at = (r: number, h: number): Vec3 => [r * Math.cos(angle), r * Math.sin(angle), h];
+    return [at(inner, z), at(threadRadius, z), at(threadRadius, z - 1), at(inner, z - 1 - underside)];
+  };
+
+  const blades: Manifold[] = [];
+  // Each step reaches slightly into the next, so that the steps fuse into one thread.
+  for (let i = 0; i < steps; i++) blades.push(Manifold.hull([...section(i), ...section(i + 1.05)]));
+
+  const height = CONFIG.cubeSize * 3 - floor - gap + grip;
+  const core = Manifold.cylinder(height, coreRadius, coreRadius, 96);
+  const pivotRadius = (pinDiameter + pinClearance) / 2;
+  // Blind hole with a pointed end, printed upright.
+  const shaft = Manifold.cylinder(pivotDepth, pivotRadius, pivotRadius, 24);
+  const rawPivot = Manifold.hull([shaft, [0, 0, pivotDepth + pivotRadius]]);
+  shaft.delete();
+  const whole = Manifold.union([core, ...blades]);
+  const level = whole.trimByPlane([0, 0, 1], 0);
+  const screw = level.subtract(rawPivot);
+  [core, rawPivot, whole, level, ...blades].forEach((m) => m.delete());
+  if (!assembled) return screw;
+
+  const placed = screw.translate([axis, axis, floor + gap]);
+  screw.delete();
+  return placed;
+}
+
 /** The moving part of a piece, either posed in place or laid out for printing. */
 export function buildMovingPart(wasm: ManifoldToplevel, shape: Shape, assembled: boolean): Manifold {
+  if (shape === 'lift') return buildLiftScrew(wasm, assembled);
   if (shape === 'pendulum') return buildPendulumArm(wasm, assembled);
   return buildSeesawArm(wasm, assembled ? ARM.tilt : 0);
 }
