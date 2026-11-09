@@ -1,7 +1,8 @@
 import { spiralPath } from '../geometry/cavities';
 import { CONFIG } from '../geometry/config';
 import { channelPath } from '../geometry/paths';
-import { FACE_DIR, isSpiral, isVertical, parseSide, portPosition, verticalKind, type Channel, type Vec3 } from '../geometry/ports';
+import { seesawLanding } from '../geometry/moving';
+import { bodyHeight, FACE_DIR, isSpiral, isVertical, parseSide, portPosition, verticalKind, type Channel, type Vec3 } from '../geometry/ports';
 import { toWorld, type Assembly, type PlacedPiece } from './model';
 
 /** Largest height a ball may drop between two pieces (PLAN-2, section 2.3). */
@@ -96,6 +97,18 @@ function runsOf(piece: PlacedPiece): Run[] {
     return makeRun(piece, [a, b], initialFlow(c, a.position[2], b.position[2]), channelPath(c, body), open(c), !open(c));
   });
 
+  if (body.shape === 'seesaw') {
+    // The arm can tip either way, so both ends count as ways out.
+    const centre = CONFIG.cubeSize / 2;
+    const middle = (body.size[1] * CONFIG.cubeSize) / 2;
+    const top: Vec3 = [centre, middle, bodyHeight(body)];
+    const landing: Vec3 = [centre, middle, seesawLanding()];
+    for (const port of ['S.M.0', 'N.M.0'] as const) {
+      const end = describe(port);
+      runs.push(makeRun(piece, [{ position: top, dir: null, vertical: 'U' }, end], 'forward', [top, landing, end.position], true, true));
+    }
+  }
+
   const spiral = cavities.find((c) => isSpiral(c.type));
   if (spiral) {
     const path = spiralPath(body, spiral.type === 'spiralMirror');
@@ -156,6 +169,9 @@ function propagateFlow({ runs, ends }: RunGraph) {
     }
   }
 }
+
+/** A seesaw waits to be fed from above; it is never where a marble starts. */
+export const isSeesaw = (run: Run) => run.piece.spec.body.shape === 'seesaw';
 
 /** A chamber's top hole only matters when a channel leads the marble into it. */
 export function isIdleHole(run: Run, graph: RunGraph): boolean {

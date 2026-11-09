@@ -1,6 +1,7 @@
 import { boreRadius, CONFIG } from '../geometry/config';
 import type { Vec3 } from '../geometry/ports';
-import { heightSteps, rotatedFootprint, Z_STEP, type Assembly, type PlacedPiece } from './model';
+import { leanUnderside } from '../geometry/moving';
+import { heightSteps, rotatedFootprint, toWorld, Z_STEP, type Assembly, type PlacedPiece } from './model';
 import { buildRunGraph, facing, isEntry, isExit, isIdleHole, landingDrop, MAX_DROP } from './runs';
 
 export type CheckCode = 'overlap' | 'unsupported' | 'openExit' | 'blockedExit' | 'levelMismatch';
@@ -25,9 +26,24 @@ const issue = (code: CheckCode, pieceIds: string[], at?: Vec3): CheckIssue => ({
 
 const cellKey = (x: number, y: number, z: number) => `${x},${y},${z}`;
 
+/** Where each cell along a leaning ramp is, and the step at which the bar starts above it. */
+function leanCells(piece: PlacedPiece) {
+  const { body } = piece.spec;
+  const unit = CONFIG.cubeSize;
+  return Array.from({ length: body.size[1] }, (_, j) => {
+    const [x, y] = toWorld(piece, [unit / 2, (j + 0.5) * unit, 0]);
+    return { x: Math.floor(x / unit), y: Math.floor(y / unit), from: piece.cell[2] + Math.floor(leanUnderside(body, j * unit) / Z_STEP) };
+  });
+}
+
 function pieceCells(piece: PlacedPiece): [number, number, number][] {
   const [footX, footY] = rotatedFootprint(piece.spec, piece.rotation);
   const cells: [number, number, number][] = [];
+  if (piece.spec.body.shape === 'leanRamp') {
+    const top = piece.cell[2] + heightSteps(piece.spec);
+    for (const { x, y, from } of leanCells(piece)) for (let z = from; z < top; z++) cells.push([x, y, z]);
+    return cells;
+  }
   for (let z = 0; z < heightSteps(piece.spec); z++) {
     for (let y = 0; y < footY; y++) {
       for (let x = 0; x < footX; x++) cells.push([piece.cell[0] + x, piece.cell[1] + y, piece.cell[2] + z]);
@@ -57,6 +73,16 @@ export function checkAssembly(assembly: Assembly): CheckIssue[] {
   }
 
   for (const piece of assembly.pieces) {
+    if (piece.spec.body.shape === 'leanRamp') {
+      // Its high end has to rest on something, wherever the low end stands.
+      const cells = leanCells(piece);
+      const high = cells[cells.length - 1];
+      const restsOnTop = occupant.has(cellKey(high.x, high.y, high.from - 1));
+      const lowEnd = cells[0];
+      const standsOnFloor = piece.cell[2] === 0 || occupant.has(cellKey(lowEnd.x, lowEnd.y, piece.cell[2] - 1));
+      if (!restsOnTop || !standsOnFloor) issues.push(issue('unsupported', [piece.id]));
+      continue;
+    }
     if (piece.cell[2] === 0) continue;
     const [footX, footY] = rotatedFootprint(piece.spec, piece.rotation);
     let supported = false;

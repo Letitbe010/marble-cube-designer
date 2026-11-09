@@ -1,5 +1,6 @@
 import type { Manifold, ManifoldToplevel } from 'manifold-3d';
 import { CONFIG } from './config';
+import { leanSeat } from './moving';
 import { bodyHeight, type Body, type Vec3 } from './ports';
 
 /** How many corner studs a piece should have, and how many clear its channels. */
@@ -57,15 +58,26 @@ export function cutPockets(wasm: ManifoldToplevel, solid: Manifold, body: Body):
   const { locatorSize, locatorStraight, locatorClearance, locatorMouth } = CONFIG;
   const half = locatorSize / 2 + locatorClearance;
   const below = 1;
-  const tools = locatorCentres(body.size[0], body.size[1]).flatMap(([x, y]) => [
+  // A leaning ramp only comes down on its two ends, each at its own height.
+  const seats = (): [number, number, number][] => {
+    const centres = locatorCentres(body.size[0], body.size[1]);
+    if (body.shape !== 'leanRamp') return centres.map(([x, y]) => [x, y, 0]);
+    const unit = CONFIG.cubeSize;
+    const last = (body.size[1] - 1) * unit;
+    return centres.flatMap(([x, y]): [number, number, number][] => {
+      if (y < unit) return [[x, y, 0]];
+      return y >= last ? [[x, y, leanSeat(body)]] : [];
+    });
+  };
+  const tools = seats().flatMap(([x, y, z]) => [
     squareSolid(wasm, x, y, [
-      [-below, half],
-      [locatorStraight, half],
-      [locatorStraight + half, 0],
+      [z - below, half],
+      [z + locatorStraight, half],
+      [z + locatorStraight + half, 0],
     ]),
     squareSolid(wasm, x, y, [
-      [-below, half + locatorMouth + below],
-      [locatorMouth, half],
+      [z - below, half + locatorMouth + below],
+      [z + locatorMouth, half],
     ]),
   ]);
   const union = wasm.Manifold.union(tools);

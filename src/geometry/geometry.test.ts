@@ -5,7 +5,7 @@ import { boreRadius, checkLevels, CONFIG } from './config';
 import { channelPath, SEAT_LENGTH } from './paths';
 import { buildPiece } from './piece';
 import { buildPrintParts, canSplit, pieceId } from './print';
-import { ALL_PORTS, boxPiece, channel, isVertical, parseSide, portPosition, portsFor, UNIT_BODY, type Body, type Cavity, type CavityType, type Port, type Shape } from './ports';
+import { ALL_PORTS, boxPiece, channel, isVertical, parseSide, portPosition, portsFor, expectedSolids, UNIT_BODY, type Body, type Cavity, type CavityType, type Port, type Shape } from './ports';
 import { CALIBRATION, CALIBRATION_THICKNESS, PRESETS } from './presets';
 import { toBinaryStl } from './stl';
 import { adaptChannels, validateDesign } from './validate';
@@ -167,7 +167,7 @@ describe('solid', () => {
   for (const [name, spec] of Object.entries(PRESETS)) {
     it(`builds preset ${name} as a single solid`, () => {
       const result = buildPiece(wasm, spec);
-      expect(result.pieces).toBe(1);
+      expect(result.pieces).toBe(expectedSolids(spec));
       expect(result.volume).toBeGreaterThan(0);
       expect(result.volume).toBeLessThan(buildPiece(wasm, { body: spec.body, channels: [] }).volume + (spec.channels.length ? 0 : 1));
     });

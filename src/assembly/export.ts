@@ -24,11 +24,13 @@ export async function exportAssemblyZip(wasm: ManifoldToplevel, assembly: Assemb
 
   for (const { id, spec, count } of pieceList(assembly)) {
     const { parts } = buildPrintParts(wasm, spec, { engrave: true, locators: options.locators });
-    const { result } = parts[0];
     const size = spec.body.size.map((value) => value * CONFIG.cubeSize).join('x');
-    const file = `${id}-${spec.body.shape}-${size}-x${count}.stl`;
-    zip.file(file, toBinaryStl(result.positions, result.triangles, id));
-    rows.push([id, count, spec.body.shape, size, (result.volume / 1000).toFixed(1), file].join('\t'));
+    for (const { suffix, result } of parts) {
+      const part = suffix ? `-${suffix}` : '';
+      const file = `${id}-${spec.body.shape}-${size}${part}-x${count}.stl`;
+      zip.file(file, toBinaryStl(result.positions, result.triangles, id));
+      rows.push([id, count, spec.body.shape, size, (result.volume / 1000).toFixed(1), file].join('\t'));
+    }
   }
 
   rows.push(`total\t${assembly.pieces.length}`);

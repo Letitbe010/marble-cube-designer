@@ -10,8 +10,11 @@ export type VerticalPort = `${'U' | 'D'}.0`;
 export type Port = SidePort | VerticalPort;
 export type Vec3 = [number, number, number];
 
-export const SHAPES = ['box', 'cylinder', 'halfCylinder', 'arch', 'roof'] as const;
+export const SHAPES = ['box', 'cylinder', 'halfCylinder', 'arch', 'roof', 'leanRamp', 'seesaw'] as const;
 export type Shape = (typeof SHAPES)[number];
+
+/** Shapes with their own fixed design, which come from the library and are not edited. */
+export const isSpecialShape = (shape: Shape) => shape === 'leanRamp' || shape === 'seesaw';
 
 export interface Body {
   shape: Shape;
@@ -111,6 +114,7 @@ export function levelZ(level: LevelId, body: Body): number {
  * rules out faces wider than one cell; only boxes carry channels so far.
  */
 export function portsFor(body: Body, lanes = true): Port[] {
+  if (body.shape === 'leanRamp') return ['N.T.0', 'S.M.0'];
   if (body.shape !== 'box') return [];
   const [width, length] = body.size;
   return ALL_PORTS.filter((port) => {
@@ -166,6 +170,9 @@ export function channel(from: Port, to: Port, body: Body = UNIT_BODY, options: C
     profile: changesHeight ? (options.profile === 'wave' ? 'wave' : 'linear') : 'flat',
   };
 }
+
+/** How many separate solids a piece is made of when assembled. */
+export const expectedSolids = (spec: PieceSpec) => (spec.body.shape === 'seesaw' ? 2 : 1);
 
 export function boxPiece(channels: Channel[], size: Body['size'] = [1, 1, 1], cavities: Cavity[] = []): PieceSpec {
   return { body: { shape: 'box', size }, channels, cavities };

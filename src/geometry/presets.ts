@@ -66,7 +66,15 @@ export const PRESETS: Record<string, PieceSpec> = {
 const pair = (from: 'N.T' | 'N.M', to: 'S.T' | 'S.M') =>
   ([-1, 1] as const).map((lane) => c(`${from}.${lane}` as Port, `${to}.${lane}` as Port));
 
+const lean = (size: [number, number, number]): PieceSpec => {
+  const body: Body = { shape: 'leanRamp', size };
+  return { body, channels: [c('N.T.0', 'S.M.0', body)], cavities: [] };
+};
+
 Object.assign(PRESETS, {
+  leanRamp2: lean([1, 2, 1.5]),
+  leanRamp3: lean([1, 3, 2]),
+  seesaw: solid('seesaw', [1, 3, 1]),
   doubleStraight: boxPiece(pair('N.T', 'S.T')),
   doubleTunnel: boxPiece(pair('N.M', 'S.M')),
   doubleRamp: boxPiece(pair('N.T', 'S.M')),
@@ -80,12 +88,13 @@ Object.assign(PRESETS, {
   twinIntoHole: boxPiece([c('N.T.-1', 'D.0'), c('N.T.1', 'D.0')]),
 } satisfies Record<string, PieceSpec>);
 
-export const LIBRARY: { category: 'catBlocks' | 'catStructures' | 'catChannels' | 'catLow' | 'catRamps' | 'catSpecial' | 'catDouble'; items: string[] }[] = [
+export const LIBRARY: { category: 'catBlocks' | 'catStructures' | 'catChannels' | 'catLow' | 'catRamps' | 'catSpecial' | 'catDouble' | 'catMoving'; items: string[] }[] = [
   { category: 'catBlocks', items: ['cube', 'halfBlock', 'longBlock2', 'longBlock3', 'plate'] },
   { category: 'catChannels', items: ['straightTop', 'curveTop', 'crossTop', 'drop', 'straightTunnel', 'curveTunnel', 'topToTunnel', 'underside', 'double'] },
   { category: 'catRamps', items: ['rampStraight', 'rampLow', 'rampCurve', 'rampCurveMirror', 'rampCurveLow', 'rampCurveLowMirror', 'rampLong2', 'rampLong3', 'waveLong3', 'tunnelRamp'] },
   { category: 'catSpecial', items: ['start', 'startLow', 'funnelTunnel', 'funnelDrop', 'stop', 'stopLow', 'basinCross', 'basinCrossLow', 'chamberCross', 'chamberDrop', 'spiral', 'spiralMirror'] },
   { category: 'catDouble', items: ['doubleStraight', 'doubleTunnel', 'doubleRamp', 'doubleCurve', 'doubleOverTunnel', 'doubleLow', 'yMerge', 'yMergeRamp', 'laneShift', 'tunnelShift', 'twinIntoHole'] },
+  { category: 'catMoving', items: ['leanRamp2', 'leanRamp3', 'seesaw'] },
   { category: 'catLow', items: ['halfGroove', 'halfCurve', 'longGroove2', 'longGroove3', 'longTunnel2'] },
   { category: 'catStructures', items: ['cylinder', 'halfRound', 'arch', 'roof'] },
 ];

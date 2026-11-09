@@ -139,6 +139,8 @@ Pauso bakoitza amaitzean aplikazioa funtzionamenduan egongo da eta GitHub-en arg
 | **9** | **Kalibrazioa eta inprimatze-probak** | Kalibrazio-pieza eta aurreko pausoetako probak; plaka txiki bat eta bi kubo, 0,1 / 0,2 / 0,3 mm-ko jokoekin; kolpe-proba altzairuzko kanikarekin; parametroak doitu | Parametroen azken balioak | Pista bat fisikoki dabil |
 | **10** | **Kanika-bultzagailua** (2.8) | Penduluzko bultzagailua; lehenik horizontala, gero igoera | Pieza mugikorra liburutegian; simulazioan abiadura-iturri gisa | Igoera neurtu altzairuz eta beiraz |
 
+**8. pausoan erabakitakoa (2026-11-09):** arrapala askeak 1:2 maldakoak dira, ertza 25 mm-ko saretan geratzeko (2 unitate, 75 mm-ko altuera; 3 unitate, 100 mm-ko altuera). Etzanda inprimatzen dira, eta ez dute kanalean geruza-eskailerarik. Balantzina goitik erortzen den kanika jasotzen duen bi noranzkoko etengailua da (1 × 3 × 1); oinarria eta besoa bereizita inprimatzen dira, eta 1,75 mm-ko filamentua da ardatza. Simulazioan bide finko bat da: besoaren mugimendua ez da kalkulatzen, eta txandakatzea ez dago simulatuta.
+
 Pistaren editorea (6) kanal bikoitzen aurretik doa, proiektuaren helburu nagusia delako eta bikoitzak gero portu-eredua zabalduz gehitzen direlako. Bikoitzek ez dute 1. pausoko eredua aldatzen behartuko, portuek hasieratik `lane` eremua izango dutelako (0 balioarekin).
 
 ## 5. Inprimaketa-arazoak

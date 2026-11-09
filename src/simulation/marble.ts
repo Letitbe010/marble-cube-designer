@@ -1,5 +1,5 @@
 import type { Assembly } from '../assembly/model';
-import { buildRunGraph, facing, isEntry, isExit, isIdleHole, landingDrop, MAX_DROP, projectOnPath, type End, type Run, type RunGraph } from '../assembly/runs';
+import { buildRunGraph, facing, isEntry, isExit, isIdleHole, isSeesaw, landingDrop, MAX_DROP, projectOnPath, type End, type Run, type RunGraph } from '../assembly/runs';
 import { CONFIG } from '../geometry/config';
 import type { Vec3 } from '../geometry/ports';
 
@@ -155,7 +155,7 @@ export function findStarts(graph: RunGraph): Run[] {
     if (next) fed.add(next.run);
   }
   const top = (run: Run) => orientedPath(run)[0][2];
-  return graph.runs.filter((run) => run.flow && !fed.has(run) && !isIdleHole(run, graph)).sort((a, b) => top(b) - top(a));
+  return graph.runs.filter((run) => run.flow && !fed.has(run) && !isIdleHole(run, graph) && !isSeesaw(run)).sort((a, b) => top(b) - top(a));
 }
 
 /** How a track ends when nothing follows: a stop or the table is an arrival, anything else a gap. */

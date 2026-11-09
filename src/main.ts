@@ -3,7 +3,7 @@ import type { ManifoldToplevel } from 'manifold-3d';
 import './style.css';
 import { buildPiece, type BuildResult } from './geometry/piece';
 import { CAVITY_SIZES, cavityFits } from './geometry/cavities';
-import { CAVITY_TYPES, channel, isSpiral, isVertical, normalizeBody, parseSide, portsFor, SHAPES, type Body, type Cavity, type CavityType, type Channel, type PieceSpec, type Port, type Shape } from './geometry/ports';
+import { CAVITY_TYPES, channel, expectedSolids, isSpecialShape, isSpiral, isVertical, normalizeBody, parseSide, portsFor, SHAPES, type Body, type Cavity, type CavityType, type Channel, type PieceSpec, type Port, type Shape } from './geometry/ports';
 import { HEIGHTS, LENGTHS, parseSpec, WIDTHS } from './geometry/specIo';
 import { CALIBRATION, CALIBRATION_THICKNESS, LIBRARY, PRESETS } from './geometry/presets';
 import { toBinaryStl } from './geometry/stl';
@@ -53,6 +53,8 @@ function load(): Saved {
     return fallback;
   }
 }
+
+const usesSideLane = ({ from, to }: Channel) => [from, to].some((p) => !isVertical(p) && parseSide(p).lane !== 0);
 
 const saved = load();
 const state = {
@@ -114,8 +116,6 @@ function syncPortSelection() {
   if (!available.includes(state.from)) state.from = available[0];
   if (!available.includes(state.to)) state.to = available[available.length - 1];
 }
-
-const usesSideLane = ({ from, to }: Channel) => [from, to].some((p) => !isVertical(p) && parseSide(p).lane !== 0);
 
 function setSpec(spec: PieceSpec) {
   const bodyChanged = JSON.stringify(spec.body) !== JSON.stringify(state.spec.body);
@@ -227,8 +227,11 @@ async function exportLibrary() {
   const manifest: string[] = ['id\tpiece\tvolume_cm3'];
   for (const [key, spec] of Object.entries(PRESETS)) {
     const { id, parts } = buildPrintParts(wasm, spec, { engrave: true, locators: state.locators });
-    zip.file(`${key}-${id}.stl`, stlOf(parts[0].result, id));
-    manifest.push(`${id}\t${key}\t${(parts[0].result.volume / 1000).toFixed(1)}`);
+    for (const { suffix, result } of parts) {
+      const part = suffix ? `-${suffix}` : '';
+      zip.file(`${key}-${id}${part}.stl`, stlOf(result, id));
+      manifest.push(`${id}${part}\t${key}\t${(result.volume / 1000).toFixed(1)}`);
+    }
   }
   zip.file('parts.txt', manifest.join('\n'));
   download(await zip.generateAsync({ type: 'arraybuffer' }), 'marble-cube-library.zip', ZIP_TYPE);
@@ -264,8 +267,9 @@ function sizeOptions(values: number[], selected: number): string {
 }
 
 function renderBodyEditor(body: Body): string {
+  if (isSpecialShape(body.shape)) return `<h2>${t('body')}</h2><p class="hint">${t(body.shape === 'seesaw' ? 'specialSeesaw' : 'specialLean')}</p>`;
   const [x, y, z] = body.size;
-  const shapes = SHAPES.map((s) => `<option value="${s}"${s === body.shape ? ' selected' : ''}>${t(SHAPE_LABELS[s])}</option>`).join('');
+  const shapes = SHAPES.filter((s) => !isSpecialShape(s)).map((s) => `<option value="${s}"${s === body.shape ? ' selected' : ''}>${t(SHAPE_LABELS[s])}</option>`).join('');
   return `
     <h2>${t('body')}</h2>
     <div class="params">
@@ -304,6 +308,7 @@ function renderCavityEditor(spec: PieceSpec): string {
 }
 
 function renderChannelEditor(spec: PieceSpec, ports: Port[], notices: string): string {
+  if (isSpecialShape(spec.body.shape)) return notices;
   if (ports.length === 0) return `<p class="hint">${t('noPorts')}</p>${notices}`;
   return `
     <h2>${t('custom')}</h2>
@@ -368,7 +373,7 @@ function render() {
   const { spec, result } = state;
   const ports = portsFor(spec.body, state.lanes);
   const issues = validateDesign(spec);
-  const broken = result !== null && result.pieces !== 1;
+  const broken = result !== null && result.pieces !== expectedSolids(spec);
   const canExport = result !== null && !broken;
 
   const notices = [

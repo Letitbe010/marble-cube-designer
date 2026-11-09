@@ -37,6 +37,8 @@ export const CONFIG = {
   pinClearance: 0.35,
   pinDepth: 6,
   pinInset: 8,
+  /** Radial play of a moving part around its axle. */
+  axleClearance: 0.3,
   /** Depth of the identifier engraved on the underside. */
   idDepth: 0.6,
   /** Corner studs on top of a piece and the pockets under the next one (PLAN-2, section 2.5). */

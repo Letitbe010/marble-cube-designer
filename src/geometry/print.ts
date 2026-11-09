@@ -1,5 +1,6 @@
 import type { Manifold, ManifoldToplevel } from 'manifold-3d';
 import { CONFIG } from './config';
+import { buildSeesawArm, leanAngle } from './moving';
 import { buildReportedSolid, toResult, type BuildResult } from './piece';
 import type { StudReport } from './locators';
 import { bodyHeight, channelKey, type PieceSpec } from './ports';
@@ -183,7 +184,7 @@ export function buildPrintParts(wasm: ManifoldToplevel, spec: PieceSpec, options
   };
 
   try {
-    const built = buildReportedSolid(wasm, spec, { locators: options.locators });
+    const built = buildReportedSolid(wasm, spec, { locators: options.locators, omitMoving: spec.body.shape === 'seesaw' });
     const { studs } = built;
     let solid = keep(built.solid);
     if (options.engrave) solid = keep(engraveId(wasm, solid, id, spec));
@@ -202,6 +203,21 @@ export function buildPrintParts(wasm: ManifoldToplevel, spec: PieceSpec, options
         ],
       };
     }
+
+    if (spec.body.shape === 'seesaw') {
+      const arm = keep(buildSeesawArm(wasm));
+      return {
+        id,
+        studs,
+        parts: [
+          { suffix: 'base', result: toResult(solid) },
+          { suffix: 'arm', result: toResult(keep(placeOnBed(arm))) },
+        ],
+      };
+    }
+
+    // A leaning ramp prints lying on its underside, which also leaves its groove smooth.
+    if (spec.body.shape === 'leanRamp') solid = keep(placeOnBed(keep(solid.rotate([-leanAngle(spec.body), 0, 0]))));
 
     // An arch printed upright would need its crown supported; on its side it needs nothing.
     if (spec.body.shape === 'arch') solid = keep(placeOnBed(keep(solid.rotate([90, 0, 0]))));
