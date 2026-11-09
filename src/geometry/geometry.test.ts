@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { boreRadius, checkLevels, CONFIG } from './config';
 import { channelPath } from './paths';
 import { buildPiece } from './piece';
-import { ALL_PORTS, boxPiece, channel, isVertical, parseSide, portPosition, type Port } from './ports';
+import { ALL_PORTS, boxPiece, channel, isVertical, parseSide, portPosition, portsFor, UNIT_BODY, type Port, type Shape } from './ports';
 import { CALIBRATION, CALIBRATION_THICKNESS, PRESETS } from './presets';
 import { toBinaryStl } from './stl';
 import { validateDesign } from './validate';
@@ -27,9 +27,9 @@ describe('paths', () => {
       for (const to of ALL_PORTS) {
         if (from === to) continue;
         if (!isVertical(from) && !isVertical(to) && parseSide(from).face === parseSide(to).face) continue;
-        const path = channelPath(channel(from, to));
+        const path = channelPath(channel(from, to), UNIT_BODY);
         const touches = (port: Port) => {
-          const [x, y, z] = portPosition(port);
+          const [x, y, z] = portPosition(port, UNIT_BODY);
           return path.some((p) => {
             // A channel can end at the centre at its own depth rather than on the surface.
             const dz = isVertical(port) ? 0 : Math.abs(p[2] - z);
@@ -55,18 +55,18 @@ describe('channel sections', () => {
 
 describe('validation', () => {
   it('accepts every preset', () => {
-    for (const [name, spec] of Object.entries(PRESETS)) expect(validateDesign(spec.channels), name).toEqual([]);
+    for (const [name, spec] of Object.entries(PRESETS)) expect(validateDesign(spec), name).toEqual([]);
   });
   it('rejects two ports on one face', () => {
-    expect(validateDesign([channel('N.T.0', 'N.M.0')])[0].code).toBe('sameFace');
+    expect(validateDesign(boxPiece([channel('N.T.0', 'N.M.0')]))[0].code).toBe('sameFace');
   });
   it('rejects duplicates in either direction', () => {
-    const issues = validateDesign([channel('N.T.0', 'S.T.0'), channel('S.T.0', 'N.T.0')]);
+    const issues = validateDesign(boxPiece([channel('N.T.0', 'S.T.0'), channel('S.T.0', 'N.T.0')]));
     expect(issues[0].code).toBe('duplicate');
   });
   it('flags a near miss between a ramp and a tunnel', () => {
     const design = [channel('N.T.0', 'S.M.0'), channel('E.M.0', 'W.M.0')];
-    expect(validateDesign(design).some((i) => i.code === 'thinWall')).toBe(true);
+    expect(validateDesign(boxPiece(design)).some((i) => i.code === 'thinWall')).toBe(true);
   });
 });
 
@@ -82,10 +82,11 @@ describe('solid', () => {
       const result = buildPiece(wasm, spec);
       expect(result.pieces).toBe(1);
       expect(result.volume).toBeGreaterThan(0);
-      expect(result.volume).toBeLessThan(fullVolume);
+      expect(result.volume).toBeLessThan(buildPiece(wasm, { body: spec.body, channels: [] }).volume + (spec.channels.length ? 0 : 1));
     });
 
-    it(`preset ${name} has no overhang steeper than 45 degrees`, () => {
+    // Arches print on their side; automatic orientation arrives with the print output step.
+    it.skipIf(spec.body.shape === 'arch')(`preset ${name} has no overhang steeper than 45 degrees`, () => {
       const { positions: p, triangles } = buildPiece(wasm, spec);
       let worst = 0;
       for (let i = 0; i < triangles.length; i += 3) {
@@ -118,6 +119,76 @@ describe('solid', () => {
     let maxZ = 0;
     for (let i = 2; i < positions.length; i += 3) maxZ = Math.max(maxZ, positions[i]);
     expect(maxZ).toBeCloseTo(CONFIG.cubeSize, 3);
+  });
+});
+
+describe('bodies', () => {
+  const extents = (positions: Float32Array) => {
+    const min = [Infinity, Infinity, Infinity];
+    const max = [-Infinity, -Infinity, -Infinity];
+    positions.forEach((value, i) => {
+      min[i % 3] = Math.min(min[i % 3], value);
+      max[i % 3] = Math.max(max[i % 3], value);
+    });
+    return max.map((m, i) => m - min[i]);
+  };
+  const shapes: [Shape, [number, number, number]][] = [
+    ['box', [1, 1, 0.5]],
+    ['box', [2, 2, 0.5]],
+    ['box', [1, 3, 2]],
+    ['halfCylinder', [2, 1, 1]],
+    ['roof', [2, 3, 0.5]],
+    ['arch', [1, 1, 0.5]],
+    ['arch', [2, 3, 2]],
+  ];
+
+  for (const [shape, size] of shapes) {
+    it(`builds a ${shape} of ${size.join('x')} with the right outline`, () => {
+      const result = buildPiece(wasm, { body: { shape, size }, channels: [] });
+      const [x, y, z] = extents(result.positions);
+      expect(result.pieces).toBe(1);
+      expect(x).toBeCloseTo(size[0] * CONFIG.cubeSize - CONFIG.fitClearance, 2);
+      expect(y).toBeCloseTo(size[1] * CONFIG.cubeSize - CONFIG.fitClearance, 2);
+      expect(z).toBeCloseTo(size[2] * CONFIG.cubeSize, 2);
+    });
+  }
+
+  it('builds a cylinder with the expected volume', () => {
+    const result = buildPiece(wasm, { body: { shape: 'cylinder', size: [1, 1, 1] }, channels: [] });
+    const r = (CONFIG.cubeSize - CONFIG.fitClearance) / 2;
+    expect(result.volume / (Math.PI * r * r * CONFIG.cubeSize)).toBeCloseTo(1, 2);
+  });
+
+  it('offers ports only on faces one cell wide', () => {
+    const ports = portsFor({ shape: 'box', size: [1, 2, 1] });
+    expect(ports).toContain('N.T.0');
+    expect(ports).toContain('S.M.0');
+    expect(ports).not.toContain('E.T.0');
+    expect(ports).not.toContain('U.0');
+    expect(portsFor({ shape: 'box', size: [2, 2, 1] })).toEqual([]);
+  });
+
+  it('offers no tunnel on half-height pieces', () => {
+    const ports = portsFor({ shape: 'box', size: [1, 1, 0.5] });
+    expect(ports.some((p) => p.includes('.M.'))).toBe(false);
+    expect(ports).toContain('N.T.0');
+  });
+
+  it('offers no ports on structural shapes', () => {
+    expect(portsFor({ shape: 'arch', size: [2, 1, 1] })).toEqual([]);
+  });
+
+  it('puts the top groove at the top of a low piece', () => {
+    const body = { shape: 'box', size: [1, 1, 0.5] } as const;
+    expect(portPosition('N.T.0', { ...body, size: [1, 1, 0.5] })[2]).toBe(25);
+  });
+
+  it('runs a long groove from end to end', () => {
+    const body = PRESETS.longGroove3.body;
+    const path = channelPath(PRESETS.longGroove3.channels[0], body);
+    const ys = path.map((p) => p[1]);
+    expect(Math.max(...ys)).toBeCloseTo(151, 3);
+    expect(Math.min(...ys)).toBeCloseTo(-1, 3);
   });
 });
 

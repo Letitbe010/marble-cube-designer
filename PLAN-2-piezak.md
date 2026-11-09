@@ -26,7 +26,7 @@ Liburutegiko pieza bat parametro-multzo bat besterik ez da. Forma bat gehitzeko 
 
 ```ts
 interface PieceSpec {
-  body: { shape: 'box' | 'cylinder' | 'halfCylinder' | 'arch' | 'roof' | 'wedge'; size: [number, number, number] };
+  body: { shape: 'box' | 'cylinder' | 'halfCylinder' | 'arch' | 'roof'; size: [number, number, number] };
   channels: Channel[];
   cavities: Cavity[];
   print: { upsideDown?: boolean; splitPlane?: 'x' | 'y' | 'z' };
@@ -77,7 +77,9 @@ Piezak familia generiko eta parametroen bidez definituko dira, izen propioekin. 
 
 ## 4. Pausoak
 
-Pauso bakoitza amaitzean aplikazioa funtzionamenduan egongo da eta GitHub-en argitaratuko da. Inprimatze-puntuetan zure proba behar da.
+Pauso bakoitza amaitzean aplikazioa funtzionamenduan egongo da eta GitHub-en argitaratuko da.
+
+**Aldaketa (2026-11-09):** erabiltzaileak ezin du orain inprimatu. Beheko taulako inprimatze-proba guztiak 9. pausora atzeratu dira, eta bitartean pausoak test automatikoekin eta nabigatzailean egiaztatzen dira. Neurri guztiak parametroak direnez, azken kalibrazioak piezak birsortzea besterik ez du eskatuko. Arriskua: geometria fisikoki probatu gabe garatzen da 9. pausora arte.
 
 | # | Pausoa | Diseinua | Aplikazioa | Egiaztapena |
 |---|---|---|---|---|
@@ -89,6 +91,7 @@ Pauso bakoitza amaitzean aplikazioa funtzionamenduan egongo da eta GitHub-en arg
 | **6** | **Pistaren editorea** | Zelda anitzeko piezak, 25 mm-ko Z saretan | 3D sareta, bidearen egiaztapena, kubo-zerrenda automatikoa | **Pista txiki bat muntatu** |
 | **7** | **Kanal bikoitzak** | Erditik ±12,5 mm-ra dauden kaleak; Y bidegurutzea; tunel makurtuak | Portuei kalea gehitu; editorean bi kale | Bikoitz bat inprimatu |
 | **8** | **Arrapala askeak eta mugikorrak** | Euskarri-koskadun arrapala makurtua; balantzina ardatzarekin (joko 0,3 mm) | Muntaia anitzeko piezak | Mugimendua probatu |
+| **9** | **Kalibrazioa eta inprimatze-probak** | Kalibrazio-pieza eta aurreko pausoetako probak; parametroak doitu | Parametroen azken balioak | Pista bat fisikoki dabil |
 
 Pistaren editorea (6) kanal bikoitzen aurretik doa, proiektuaren helburu nagusia delako eta bikoitzak gero portu-eredua zabalduz gehitzen direlako. Bikoitzek ez dute 1. pausoko eredua aldatzen behartuko, portuek hasieratik `lane` eremua izango dutelako (0 balioarekin).
 

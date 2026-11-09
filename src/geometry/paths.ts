@@ -1,10 +1,13 @@
 import { CONFIG } from './config';
 import {
+  bodyHeight,
   FACE_DIR,
   isVertical,
+  levelZ,
   parseSide,
   portPosition,
   verticalKind,
+  type Body,
   type Channel,
   type SidePort,
   type Vec3,
@@ -16,14 +19,13 @@ const OVERSHOOT = 1;
 
 const smoothstep = (t: number) => t * t * (3 - 2 * t);
 
-function sidePath(a: SidePort, b: SidePort): Vec3[] {
-  const pa = portPosition(a);
-  const pb = portPosition(b);
+function sidePath(a: SidePort, b: SidePort, body: Body): Vec3[] {
+  const pa = portPosition(a, body);
+  const pb = portPosition(b, body);
   const da = FACE_DIR[parseSide(a).face];
   const db = FACE_DIR[parseSide(b).face];
   const steps = CONFIG.curveSteps;
   const points: Vec3[] = [];
-  const half = CONFIG.cubeSize / 2;
 
   if (da[0] === -db[0] && da[1] === -db[1]) {
     // Opposite faces: straight run, ramping between levels if needed.
@@ -37,7 +39,8 @@ function sidePath(a: SidePort, b: SidePort): Vec3[] {
       ]);
     }
   } else {
-    // Adjacent faces: quarter circle around the shared corner.
+    // Adjacent faces only exist on one-cell footprints: quarter circle around the shared corner.
+    const half = CONFIG.cubeSize / 2;
     const cx = half + (da[0] + db[0]) * half;
     const cy = half + (da[1] + db[1]) * half;
     const a0 = Math.atan2(pa[1] - cy, pa[0] - cx);
@@ -62,11 +65,12 @@ function sidePath(a: SidePort, b: SidePort): Vec3[] {
   ];
 }
 
-function verticalPath(side: SidePort, port: VerticalPort, section: Channel['section']): Vec3[] {
+/** Vertical ports only exist on one-cell footprints. */
+function verticalPath(side: SidePort, port: VerticalPort, section: Channel['section'], body: Body): Vec3[] {
   const half = CONFIG.cubeSize / 2;
   const { face, level } = parseSide(side);
   const [dx, dy] = FACE_DIR[face];
-  const z = CONFIG.levels[level].z;
+  const z = levelZ(level, body);
   const at = (u: number, h: number): Vec3 => [half + dx * u, half + dy * u, h];
 
   // A groove or underside channel simply ends over the centre of the piece.
@@ -74,7 +78,7 @@ function verticalPath(side: SidePort, port: VerticalPort, section: Channel['sect
 
   const up = verticalKind(port) === 'U';
   const direction = up ? 1 : -1;
-  const end = up ? CONFIG.cubeSize : 0;
+  const end = up ? bodyHeight(body) : 0;
   const radius = Math.min(half, Math.abs(end - z));
   const points: Vec3[] = [at(half + OVERSHOOT, z), at(half, z)];
   if (radius < half) points.push(at(radius, z));
@@ -87,15 +91,15 @@ function verticalPath(side: SidePort, port: VerticalPort, section: Channel['sect
 }
 
 /** Centre line of the ball through a channel. */
-export function channelPath({ from, to, section }: Channel): Vec3[] {
+export function channelPath({ from, to, section }: Channel, body: Body): Vec3[] {
   if (isVertical(from) && isVertical(to)) {
     const half = CONFIG.cubeSize / 2;
     return [
-      [half, half, CONFIG.cubeSize + OVERSHOOT],
+      [half, half, bodyHeight(body) + OVERSHOOT],
       [half, half, -OVERSHOOT],
     ];
   }
-  if (isVertical(from)) return verticalPath(to as SidePort, from, section);
-  if (isVertical(to)) return verticalPath(from as SidePort, to, section);
-  return sidePath(from, to);
+  if (isVertical(from)) return verticalPath(to as SidePort, from, section, body);
+  if (isVertical(to)) return verticalPath(from as SidePort, to, section, body);
+  return sidePath(from, to, body);
 }

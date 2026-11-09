@@ -1,7 +1,8 @@
 import type { Manifold, ManifoldToplevel } from 'manifold-3d';
+import { buildBody } from './body';
 import { boreRadius, CONFIG, ROOF_PEAK_FACTOR } from './config';
 import { channelPath } from './paths';
-import type { Channel, PieceSpec, Vec3 } from './ports';
+import type { PieceSpec, Vec3 } from './ports';
 
 export interface BuildResult {
   /** Three coordinates per vertex. */
@@ -22,7 +23,7 @@ export interface BuildOptions {
 const SLOT_HEIGHT = 20;
 
 /** Sweeps a ball along each channel, returning one cutter per path step. */
-function buildCutters(wasm: ManifoldToplevel, channels: Channel[]): Manifold[] {
+function buildCutters(wasm: ManifoldToplevel, spec: PieceSpec): Manifold[] {
   const sphere = wasm.Manifold.sphere(boreRadius(), CONFIG.sphereSegments);
   const mesh = sphere.getMesh();
   sphere.delete();
@@ -33,8 +34,8 @@ function buildCutters(wasm: ManifoldToplevel, channels: Channel[]): Manifold[] {
   const place = (at: Vec3, dz = 0): Vec3[] => shell.map((v) => [v[0] + at[0], v[1] + at[1], v[2] + at[2] + dz]);
 
   const cutters: Manifold[] = [];
-  for (const channel of channels) {
-    const path = channelPath(channel);
+  for (const channel of spec.channels) {
+    const path = channelPath(channel, spec.body);
     for (let i = 0; i < path.length - 1; i++) {
       const [a, b] = [path[i], path[i + 1]];
       const points = [...place(a), ...place(b)];
@@ -54,17 +55,15 @@ function buildCutters(wasm: ManifoldToplevel, channels: Channel[]): Manifold[] {
 /** Builds the printable solid for a piece. */
 export function buildPiece(wasm: ManifoldToplevel, spec: PieceSpec, options: BuildOptions = {}): BuildResult {
   const { Manifold } = wasm;
-  const { cubeSize, fitClearance } = CONFIG;
+  const { cubeSize } = CONFIG;
   const owned: Manifold[] = [];
   const keep = (m: Manifold) => (owned.push(m), m);
 
   try {
-    const [sizeX, sizeY, sizeZ] = spec.body.size;
-    const body = keep(Manifold.cube([sizeX * cubeSize - fitClearance, sizeY * cubeSize - fitClearance, sizeZ * cubeSize]));
-    let solid = keep(body.translate([fitClearance / 2, fitClearance / 2, 0]));
+    let solid = keep(buildBody(wasm, spec.body));
 
     if (spec.channels.length) {
-      const cutters = buildCutters(wasm, spec.channels).map(keep);
+      const cutters = buildCutters(wasm, spec).map(keep);
       solid = keep(solid.subtract(keep(Manifold.union(cutters))));
     }
 

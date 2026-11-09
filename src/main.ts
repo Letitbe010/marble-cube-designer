@@ -1,8 +1,8 @@
 import type { ManifoldToplevel } from 'manifold-3d';
 import './style.css';
 import { buildPiece, type BuildResult } from './geometry/piece';
-import { ALL_PORTS, boxPiece, channel, type Channel, type Port } from './geometry/ports';
-import { CALIBRATION, CALIBRATION_THICKNESS, PRESETS } from './geometry/presets';
+import { channel, normalizeBody, portsFor, SHAPES, UNIT_BODY, type Body, type Channel, type PieceSpec, type Port, type Shape } from './geometry/ports';
+import { CALIBRATION, CALIBRATION_THICKNESS, LIBRARY, PRESETS } from './geometry/presets';
 import { toBinaryStl } from './geometry/stl';
 import { validateDesign, type IssueCode } from './geometry/validate';
 import { loadManifold } from './geometry/wasm';
@@ -11,26 +11,46 @@ import { Viewer } from './ui/viewer';
 
 const STORAGE_KEY = 'marble-cube-designer';
 
+const WIDTHS = [1, 2];
+const LENGTHS = [1, 2, 3];
+const HEIGHTS = [0.5, 1, 1.5, 2];
+const SHAPE_LABELS: Record<Shape, StringKey> = {
+  box: 'shapeBox',
+  cylinder: 'shapeCylinder',
+  halfCylinder: 'shapeHalfCylinder',
+  arch: 'shapeArch',
+  roof: 'shapeRoof',
+};
+
 interface Saved {
   lang: Lang;
-  channels: Channel[];
+  spec: PieceSpec;
 }
 
 /** Designs saved before lanes existed use ports like "N.T"; they now read "N.T.0". */
 const migratePort = (port: string) => (/\.\d$/.test(port) ? port : `${port}.0`) as Port;
 
+function loadBody(raw: Partial<Body> | undefined): Body {
+  const size = raw?.size;
+  const valid = size?.length === 3 && WIDTHS.includes(size[0]) && LENGTHS.includes(size[1]) && HEIGHTS.includes(size[2]);
+  if (!valid || !raw?.shape || !SHAPES.includes(raw.shape)) return UNIT_BODY;
+  return normalizeBody({ shape: raw.shape, size });
+}
+
 function load(): Saved {
-  const fallback: Saved = { lang: 'eu', channels: [...PRESETS.curveTop.channels] };
+  const fallback: Saved = { lang: 'eu', spec: PRESETS.curveTop };
   try {
     const data = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
     if (!data) return fallback;
-    const stored = (data.channels ?? data.segments) as { from: string; to: string }[];
+    const body = loadBody(data.spec?.body);
+    const available = portsFor(body);
+    const stored = (data.spec?.channels ?? data.channels ?? data.segments) as { from: string; to: string }[];
     const channels = stored
       .map((s) => ({ from: migratePort(s.from), to: migratePort(s.to) }))
-      .filter((s) => ALL_PORTS.includes(s.from) && ALL_PORTS.includes(s.to))
+      .filter((s) => available.includes(s.from) && available.includes(s.to))
       .map((s) => channel(s.from, s.to));
     const lang = LANGS.includes(data.lang) ? (data.lang as Lang) : fallback.lang;
-    return { lang, channels };
+    return { lang, spec: { body, channels } };
   } catch {
     return fallback;
   }
@@ -39,7 +59,7 @@ function load(): Saved {
 const saved = load();
 const state = {
   lang: saved.lang,
-  channels: saved.channels,
+  spec: saved.spec,
   picked: null as Port | null,
   from: 'N.T.0' as Port,
   to: 'S.T.0' as Port,
@@ -57,7 +77,7 @@ let viewer: Viewer | null = null;
 
 function persist() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ lang: state.lang, channels: state.channels }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ lang: state.lang, spec: state.spec }));
   } catch {
     // Storage can be unavailable (private mode); the design just won't be remembered.
   }
@@ -66,7 +86,7 @@ function persist() {
 function rebuild() {
   if (!wasm || !viewer) return;
   try {
-    state.result = buildPiece(wasm, boxPiece(state.channels));
+    state.result = buildPiece(wasm, state.spec);
     state.buildFailed = false;
     viewer.setResult(state.result);
   } catch (error) {
@@ -76,17 +96,42 @@ function rebuild() {
   }
 }
 
-function setChannels(channels: Channel[]) {
-  state.channels = channels;
+/** Keeps the port selectors on ports the current body actually has. */
+function syncPortSelection() {
+  const available = portsFor(state.spec.body);
+  if (!available.length) return;
+  if (!available.includes(state.from)) state.from = available[0];
+  if (!available.includes(state.to)) state.to = available[available.length - 1];
+}
+
+function setSpec(spec: PieceSpec) {
+  const bodyChanged = JSON.stringify(spec.body) !== JSON.stringify(state.spec.body);
+  state.spec = spec;
   state.rejected = null;
+  if (bodyChanged) {
+    state.picked = null;
+    viewer?.setBody(spec.body);
+    syncPortSelection();
+  }
   persist();
   rebuild();
   render();
 }
 
+const setChannels = (channels: Channel[]) => setSpec({ body: state.spec.body, channels });
+
+function setBody(next: Body) {
+  const body = normalizeBody(next);
+  const available = portsFor(body);
+  const channels = state.spec.channels
+    .filter((c) => available.includes(c.from) && available.includes(c.to))
+    .map((c) => channel(c.from, c.to));
+  setSpec({ body, channels });
+}
+
 function addChannel(added: Channel) {
-  const candidate = [...state.channels, added];
-  const blocking = validateDesign(candidate).find((issue) => issue.code !== 'thinWall');
+  const candidate = [...state.spec.channels, added];
+  const blocking = validateDesign({ body: state.spec.body, channels: candidate }).find((issue) => issue.code !== 'thinWall');
   if (blocking) {
     state.rejected = blocking.code;
     render();
@@ -117,10 +162,11 @@ function download(buffer: ArrayBuffer, name: string) {
   URL.revokeObjectURL(url);
 }
 
-function exportCube() {
+function exportPiece() {
   if (!state.result) return;
-  const id = state.channels.map((s) => `${s.from}-${s.to}`.replace(/\.0/g, '').replace(/\./g, '')).join('_') || 'blank';
-  const name = `cube-${id}`;
+  const { body, channels } = state.spec;
+  const id = channels.map((s) => `${s.from}-${s.to}`.replace(/\.0/g, '').replace(/\./g, '')).join('_');
+  const name = [`${body.shape}-${body.size.join('x')}`, id].filter(Boolean).join('-');
   download(toBinaryStl(state.result.positions, state.result.triangles, name), `${name}.stl`);
 }
 
@@ -130,14 +176,51 @@ function exportCalibration() {
   download(toBinaryStl(positions, triangles, 'calibration'), 'calibration-piece.stl');
 }
 
-function portOptions(selected: Port): string {
-  return ALL_PORTS.map((p) => `<option value="${p}"${p === selected ? ' selected' : ''}>${portName(state.lang, p)}</option>`).join('');
+function portOptions(selected: Port, ports: Port[]): string {
+  return ports.map((p) => `<option value="${p}"${p === selected ? ' selected' : ''}>${portName(state.lang, p)}</option>`).join('');
+}
+
+function sizeOptions(values: number[], selected: number): string {
+  return values.map((v) => `<option value="${v}"${v === selected ? ' selected' : ''}>${v * 50} mm</option>`).join('');
+}
+
+function renderBodyEditor(body: Body): string {
+  const [x, y, z] = body.size;
+  const shapes = SHAPES.map((s) => `<option value="${s}"${s === body.shape ? ' selected' : ''}>${t(SHAPE_LABELS[s])}</option>`).join('');
+  return `
+    <h2>${t('body')}</h2>
+    <div class="params">
+      <label class="full">${t('shape')}<select id="shape">${shapes}</select></label>
+      <label>${t('width')}<select id="sizeX">${sizeOptions(WIDTHS, x)}</select></label>
+      <label>${t('length')}<select id="sizeY"${body.shape === 'cylinder' ? ' disabled' : ''}>${sizeOptions(LENGTHS, y)}</select></label>
+      <label>${t('height')}<select id="sizeZ">${sizeOptions(HEIGHTS, z)}</select></label>
+    </div>`;
+}
+
+function renderChannelEditor(spec: PieceSpec, ports: Port[], notices: string): string {
+  if (ports.length === 0) return `<p class="hint">${t('noPorts')}</p>${notices}`;
+  return `
+    <h2>${t('custom')}</h2>
+    <div class="adder">
+      <select id="from" aria-label="from">${portOptions(state.from, ports)}</select>
+      <select id="to" aria-label="to">${portOptions(state.to, ports)}</select>
+      <button class="btn" id="add">${t('add')}</button>
+    </div>
+
+    <h2>${t('segments')}</h2>
+    ${spec.channels.length === 0 ? `<p class="empty">${t('empty')}</p>` : `
+      <ul class="segments">
+        ${spec.channels.map((s, i) => `<li><span>${portName(state.lang, s.from)} → ${portName(state.lang, s.to)}</span><button data-remove="${i}" title="${t('remove')}" aria-label="${t('remove')}">×</button></li>`).join('')}
+      </ul>
+      <button class="btn wide" id="clear">${t('clear')}</button>`}
+    ${notices}`;
 }
 
 function render() {
   document.documentElement.lang = state.lang;
-  const issues = validateDesign(state.channels);
-  const { result } = state;
+  const { spec, result } = state;
+  const ports = portsFor(spec.body);
+  const issues = validateDesign(spec);
   const broken = result !== null && result.pieces !== 1;
   const canExport = result !== null && !broken;
 
@@ -155,25 +238,14 @@ function render() {
     </header>
     <p class="hint">${t('hint')}</p>
 
-    <h2>${t('presets')}</h2>
-    <div class="presets">
-      ${Object.keys(PRESETS).map((key) => `<button class="btn" data-preset="${key}">${t(key as StringKey)}</button>`).join('')}
-    </div>
+    ${LIBRARY.map(({ category, items }) => `
+      <h2>${t(category)}</h2>
+      <div class="presets">
+        ${items.map((key) => `<button class="btn" data-preset="${key}">${t(key as StringKey)}</button>`).join('')}
+      </div>`).join('')}
 
-    <h2>${t('custom')}</h2>
-    <div class="adder">
-      <select id="from" aria-label="from">${portOptions(state.from)}</select>
-      <select id="to" aria-label="to">${portOptions(state.to)}</select>
-      <button class="btn" id="add">${t('add')}</button>
-    </div>
-
-    <h2>${t('segments')}</h2>
-    ${state.channels.length === 0 ? `<p class="empty">${t('empty')}</p>` : `
-      <ul class="segments">
-        ${state.channels.map((s, i) => `<li><span>${portName(state.lang, s.from)} → ${portName(state.lang, s.to)}</span><button data-remove="${i}" title="${t('remove')}" aria-label="${t('remove')}">×</button></li>`).join('')}
-      </ul>
-      <button class="btn wide" id="clear">${t('clear')}</button>`}
-    ${notices}
+    ${renderBodyEditor(spec.body)}
+    ${renderChannelEditor(spec, ports, notices)}
     <label class="toggle"><input type="checkbox" id="xray"${state.seeThrough ? ' checked' : ''} /> ${t('xray')}</label>
 
     <h2>${t('export')}</h2>
@@ -196,15 +268,15 @@ panel.addEventListener('click', (event) => {
     persist();
     render();
   } else if (preset) {
-    setChannels([...PRESETS[preset].channels]);
+    setSpec(PRESETS[preset]);
   } else if (remove !== undefined) {
-    setChannels(state.channels.filter((_, i) => i !== Number(remove)));
+    setChannels(state.spec.channels.filter((_, i) => i !== Number(remove)));
   } else if (target.id === 'add') {
     addChannel(channel(state.from, state.to));
   } else if (target.id === 'clear') {
     setChannels([]);
   } else if (target.id === 'export') {
-    exportCube();
+    exportPiece();
   } else if (target.id === 'calibration') {
     exportCalibration();
   }
@@ -212,16 +284,25 @@ panel.addEventListener('click', (event) => {
 
 panel.addEventListener('change', (event) => {
   const target = event.target as HTMLInputElement | HTMLSelectElement;
+  const { body } = state.spec;
+  const [x, y, z] = body.size;
+
   if (target.id === 'from') state.from = target.value as Port;
   else if (target.id === 'to') state.to = target.value as Port;
+  else if (target.id === 'shape') setBody({ shape: target.value as Shape, size: [x, y, z] });
+  else if (target.id === 'sizeX') setBody({ shape: body.shape, size: [Number(target.value), y, z] });
+  else if (target.id === 'sizeY') setBody({ shape: body.shape, size: [x, Number(target.value), z] });
+  else if (target.id === 'sizeZ') setBody({ shape: body.shape, size: [x, y, Number(target.value)] });
   else if (target.id === 'xray') {
     state.seeThrough = (target as HTMLInputElement).checked;
     viewer?.setSeeThrough(state.seeThrough);
   }
 });
 
+syncPortSelection();
 render();
 viewer = new Viewer(document.querySelector<HTMLElement>('#viewport')!, onPortClick);
+viewer.setBody(state.spec.body);
 loadManifold()
   .then((instance) => {
     wasm = instance;

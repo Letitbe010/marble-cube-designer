@@ -1,6 +1,6 @@
 import { boreRadius, CONFIG } from './config';
 import { channelPath } from './paths';
-import { channelKey, isVertical, parseSide, type Channel, type Vec3 } from './ports';
+import { channelKey, isVertical, parseSide, type PieceSpec, type Vec3 } from './ports';
 
 export type IssueCode = 'samePort' | 'sameFace' | 'duplicate' | 'thinWall';
 
@@ -42,7 +42,7 @@ function pathDistance(a: Vec3[], b: Vec3[]): number {
 const CROSSING_TOLERANCE = 1;
 
 /** Checks a design for impossible segments and walls too thin to print. */
-export function validateDesign(channels: Channel[]): Issue[] {
+export function validateDesign({ body, channels }: PieceSpec): Issue[] {
   const issues: Issue[] = [];
   const seen = new Map<string, number>();
 
@@ -58,7 +58,7 @@ export function validateDesign(channels: Channel[]): Issue[] {
   });
   if (issues.length) return issues;
 
-  const paths = channels.map(channelPath);
+  const paths = channels.map((c) => channelPath(c, body));
   const limit = 2 * boreRadius() + CONFIG.minWall;
   for (let i = 0; i < channels.length; i++) {
     for (let j = i + 1; j < channels.length; j++) {

@@ -25,6 +25,8 @@ export const CONFIG = {
   sphereSegments: 32,
   /** Number of steps along curved paths. */
   curveSteps: 16,
+  /** Solid material left beside and above an arch opening. */
+  archWall: 8,
   levels: {
     T: { z: 50, section: 'groove' },
     M: { z: 25, section: 'tunnel' },

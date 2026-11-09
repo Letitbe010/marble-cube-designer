@@ -8,6 +8,15 @@ export type VerticalPort = `${'U' | 'D'}.${Lane}`;
 export type Port = SidePort | VerticalPort;
 export type Vec3 = [number, number, number];
 
+export const SHAPES = ['box', 'cylinder', 'halfCylinder', 'arch', 'roof'] as const;
+export type Shape = (typeof SHAPES)[number];
+
+export interface Body {
+  shape: Shape;
+  /** Size in grid units: width (X), length (Y), height (Z). */
+  size: [number, number, number];
+}
+
 export interface Channel {
   from: Port;
   to: Port;
@@ -15,10 +24,11 @@ export interface Channel {
 }
 
 export interface PieceSpec {
-  /** Size in grid units. */
-  body: { shape: 'box'; size: [number, number, number] };
+  body: Body;
   channels: Channel[];
 }
+
+export const UNIT_BODY: Body = { shape: 'box', size: [1, 1, 1] };
 
 export const FACES: Face[] = ['N', 'E', 'S', 'W'];
 export const ALL_PORTS: Port[] = [
@@ -47,13 +57,37 @@ export function parseSide(port: SidePort): { face: Face; level: LevelId } {
   return { face, level };
 }
 
-/** Position of a port on the surface of a one-unit piece. */
-export function portPosition(port: Port): Vec3 {
-  const half = CONFIG.cubeSize / 2;
-  if (isVertical(port)) return [half, half, verticalKind(port) === 'U' ? CONFIG.cubeSize : 0];
+export const bodyHeight = (body: Body) => body.size[2] * CONFIG.cubeSize;
+
+/** Ball-centre height of a level on a piece: the top groove follows the top of the piece. */
+export function levelZ(level: LevelId, body: Body): number {
+  return level === 'T' ? bodyHeight(body) : CONFIG.levels[level].z;
+}
+
+/**
+ * Ports a body offers. Ports stay on grid-cell centres so pieces can connect, which
+ * rules out faces wider than one cell; only boxes carry channels so far.
+ */
+export function portsFor(body: Body): Port[] {
+  if (body.shape !== 'box') return [];
+  const [width, length] = body.size;
+  const tunnelFits = bodyHeight(body) >= CONFIG.cubeSize;
+  return ALL_PORTS.filter((port) => {
+    if (isVertical(port)) return width === 1 && length === 1;
+    const { face, level } = parseSide(port);
+    if (level === 'M' && !tunnelFits) return false;
+    return (face === 'N' || face === 'S' ? width : length) === 1;
+  });
+}
+
+/** Position of a port on the surface of a piece. */
+export function portPosition(port: Port, body: Body): Vec3 {
+  const hx = (body.size[0] * CONFIG.cubeSize) / 2;
+  const hy = (body.size[1] * CONFIG.cubeSize) / 2;
+  if (isVertical(port)) return [hx, hy, verticalKind(port) === 'U' ? bodyHeight(body) : 0];
   const { face, level } = parseSide(port);
   const [dx, dy] = FACE_DIR[face];
-  return [half + dx * half, half + dy * half, CONFIG.levels[level].z];
+  return [hx + dx * hx, hy + dy * hy, levelZ(level, body)];
 }
 
 export function channelKey(c: Pick<Channel, 'from' | 'to'>): string {
@@ -76,6 +110,12 @@ export function channel(from: Port, to: Port): Channel {
   return { from, to, section: defaultSection(from, to) };
 }
 
-export function boxPiece(channels: Channel[]): PieceSpec {
-  return { body: { shape: 'box', size: [1, 1, 1] }, channels };
+export function boxPiece(channels: Channel[], size: Body['size'] = [1, 1, 1]): PieceSpec {
+  return { body: { shape: 'box', size }, channels };
+}
+
+/** Applies shape constraints: a cylinder's length always equals its width. */
+export function normalizeBody(body: Body): Body {
+  const [x, y, z] = body.size;
+  return { shape: body.shape, size: [x, body.shape === 'cylinder' ? x : y, z] };
 }
