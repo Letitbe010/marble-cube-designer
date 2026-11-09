@@ -90,30 +90,30 @@ Lotura-araua PLAN-2-piezak.md dokumentuko 2.3 atalekoa da.
 3. Hasiera-puntu bat gutxienez du, eta lehenetsitako parametroekin **Ondo** emaitza ematen du, topaketarik gabe.
 4. Finkatze-interfazearekin ere pieza guztiak zati bakarrekoak dira, eta ZIP-eko kopurua zerrendarekin bat dator.
 
-**Muntaiak** (pieza-kopuruak euskarriak barne hartzen ditu):
+**Muntaiak** (pieza-kopuru eguneratua aplikazioko galerian ikusten da):
 
-| # | Izena | Maila | Erakusten duena | Kanikak | Piezak |
-|---|---|---|---|---|---|
-| 1 | Lehen jaitsiera | Hasiberria | Hasierako blokea, malda eta geldiunea | 1 | 5 |
-| 2 | Eskailera | Hasiberria | Hainbat malda jarraian | 1 | 11 |
-| 3 | Malda luzea | Hasiberria | 3 eta 2 unitateko malda baxuak | 1 | 9 |
-| 4 | Uhin-bidea | Hasiberria | Uhin-profila | 1 | 7 |
-| 5 | Ezkerra eta eskuina | Hasiberria | Maldadun kurbak bi noranzkoetan | 1 | 8 |
-| 6 | Inbututik tunelera | Ertaina | Inbutua eta tunelak | 1 | 11 |
-| 7 | Zuloan behera | Ertaina | Jaitsiera bertikala azpiko maldara | 1 | 7 |
-| 8 | Jauzia | Ertaina | 25 mm-ko jauzi kontrolatua | 1 | 10 |
-| 9 | Zubia | Ertaina | Pista arku eta zutabeen gainean | 1 | 13 |
-| 10 | Tunel ezkutua | Ertaina | Bidea bere azpitik pasatzen da pieza berean | 1 | 17 |
-| 11 | Pista baxua | Ertaina | Erdi-altuerako piezak soilik | 1 | 12 |
-| 12 | Espirala | Ertaina | Malda eta espirala, azpiko zuloan amaiera | 1 | 5 |
-| 13 | Bi espiral | Aurreratua | Espiral ezkerra eta eskuina | 2 | 10 |
-| 14 | Dorrea | Aurreratua | Bi bira beherantz, kurbak tuneletan | 1 | 38 |
-| 15 | Begizta handia | Aurreratua | Bira handi bat, bidea bere azpitik | 1 | 23 |
-| 16 | Ganbera | Aurreratua | Eskailera eta ganbera batean amaiera | 1 | 12 |
-| 17 | Lasterketa | Aurreratua | Bi pista paralelo | 2 | 28 |
-| 18 | Bidegurutzea | Aurreratua | Bi kanika gurutze batetik, une ezberdinetan | 2 | 19 |
-| 19 | Segida | Aurreratua | Bi kanika bide beretik, 1,2 s-ko atzerapenarekin | 2 | 16 |
-| 20 | Erakusketa | Aurreratua | Tunelak, uhina, zuloa eta espirala | 1 | 34 |
+| # | Izena | Maila | Erakusten duena | Kanikak |
+|---|---|---|---|---|
+| 1 | Lehen jaitsiera | Hasiberria | Hasierako blokea, malda eta geldiunea | 1 |
+| 2 | Eskailera | Hasiberria | Hainbat malda jarraian | 1 |
+| 3 | Malda luzea | Hasiberria | 3 eta 2 unitateko malda baxuak | 1 |
+| 4 | Uhin-bidea | Hasiberria | Uhin-profila | 1 |
+| 5 | Ezkerra eta eskuina | Hasiberria | Maldadun kurbak bi noranzkoetan | 1 |
+| 6 | Inbututik tunelera | Ertaina | Inbutua eta tunelak | 1 |
+| 7 | Zuloan behera | Ertaina | Jaitsiera bertikala azpiko maldara | 1 |
+| 8 | Jauzia | Ertaina | 25 mm-ko jauzi kontrolatua | 1 |
+| 9 | Zubia | Ertaina | Pista arku eta zutabeen gainean | 1 |
+| 10 | Tunel ezkutua | Ertaina | Bidea bere azpitik pasatzen da pieza berean | 1 |
+| 11 | Pista baxua | Ertaina | Erdi-altuerako piezak soilik | 1 |
+| 12 | Espirala | Ertaina | Malda eta espirala, azpiko zuloan amaiera | 1 |
+| 13 | Bi espiral | Aurreratua | Espiral ezkerra eta eskuina | 2 |
+| 14 | Dorrea | Aurreratua | Bi bira beherantz, kurbak tuneletan | 1 |
+| 15 | Begizta handia | Aurreratua | Bira handi bat, bidea bere azpitik | 1 |
+| 16 | Ganbera | Aurreratua | Eskailera eta ganbera batean amaiera | 1 |
+| 17 | Lasterketa | Aurreratua | Bi pista paralelo | 2 |
+| 18 | Bidegurutzea | Aurreratua | Bi kanika gurutze batetik, une ezberdinetan | 2 |
+| 19 | Segida | Aurreratua | Bi kanika bide beretik, 1,2 s-ko atzerapenarekin | 2 |
+| 20 | Erakusketa | Aurreratua | Tunelak, uhina, zuloa eta espirala | 1 |
 
 **Zabalpena (2026-11-09):** erabiltzaileak eskatuta, 12 eraikuntza landuago gehitu dira ("Eraikuntza landuak" maila): Gaztelua, Sugea, Terrazak, Bidezubia, Bi maila, Bi kale bat, Espiral-dorrea, Balantzina, Amaiera handia, Sigi-saga, Begizta-dorrea eta Bira handia. Diseinu propioak dira; merkataritzako multzoen konplexutasuna eta itxura orokorra dute erreferentzia, ez haien muntaketa zehatzak. Irizpide berberak bete behar dituzte.
 

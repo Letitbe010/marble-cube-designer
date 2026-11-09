@@ -16,6 +16,8 @@ export interface GalleryItem {
 }
 
 const UNIT = CONFIG.cubeSize;
+/** Tallest block used as a support, in cubes. */
+const MAX_BLOCK_CUBES = 4;
 const COS: Record<Rotation, number> = { 0: 1, 90: 0, 180: -1, 270: 0 };
 const SIN: Record<Rotation, number> = { 0: 0, 90: 1, 180: 0, 270: -1 };
 
@@ -166,26 +168,59 @@ class Line {
   }
 }
 
+/** Fills the given cells with as few blocks as it can, using tall and double-width ones. */
+function packSupports(draft: Draft, wanted: Set<string>) {
+  const key = (x: number, y: number, z: number) => `${x},${y},${z}`;
+  const has = (x: number, y: number, z: number) => wanted.has(key(x, y, z));
+  const run = (x: number, y: number, z: number) => {
+    let n = 0;
+    while (has(x, y, z + n)) n += 1;
+    return n;
+  };
+  const take = (x: number, y: number, z: number, height: number) => {
+    for (let i = 0; i < height; i++) wanted.delete(key(x, y, z + i));
+  };
+  const cells = [...wanted].map((cell) => cell.split(',').map(Number)).sort((a, b) => a[2] - b[2] || a[1] - b[1] || a[0] - b[0]);
+
+  for (const [x, y, z] of cells) {
+    if (!has(x, y, z)) continue;
+    const free = run(x, y, z);
+    // Half blocks go first, so that everything above sits on whole cubes.
+    if (free % 2 === 1) {
+      draft.place('halfBlock', [x, y, z]);
+      take(x, y, z, 1);
+      continue;
+    }
+    const steps = Math.min(free, 2 * MAX_BLOCK_CUBES);
+    const cubes = steps / 2;
+    if (run(x + 1, y, z) >= steps) {
+      draft.place(`wall${cubes}`, [x, y, z], 0);
+      take(x + 1, y, z, steps);
+    } else if (run(x, y + 1, z) >= steps) {
+      draft.place(`wall${cubes}`, [x, y, z], 90);
+      take(x, y + 1, z, steps);
+    } else {
+      draft.place(cubes === 1 ? 'cube' : `column${cubes}`, [x, y, z]);
+    }
+    take(x, y, z, steps);
+  }
+}
+
 /** Fills the gap under every raised piece with blocks. */
 function addSupports(draft: Draft) {
   const key = (x: number, y: number, z: number) => `${x},${y},${z}`;
   const filled = new Set<string>();
-  const mark = (piece: PlacedPiece) => pieceCells(piece).forEach(([x, y, z]) => filled.add(key(x, y, z)));
-  draft.pieces.pieces.forEach(mark);
+  const wanted = new Set<string>();
+  draft.pieces.pieces.forEach((piece) => pieceCells(piece).forEach(([x, y, z]) => filled.add(key(x, y, z))));
 
   const fill = (x: number, y: number, top: number) => {
-    let low = top;
-    while (low > 0 && !filled.has(key(x, y, low - 1))) low -= 1;
-    let z = low;
-    if ((top - low) % 2 === 1) {
-      mark(draft.place('halfBlock', [x, y, z]));
-      z += 1;
+    for (let z = top - 1; z >= 0 && !filled.has(key(x, y, z)); z--) {
+      filled.add(key(x, y, z));
+      wanted.add(key(x, y, z));
     }
-    for (; z < top; z += 2) mark(draft.place('cube', [x, y, z]));
   };
 
-  const pending = [...draft.pieces.pieces].sort((a, b) => a.cell[2] - b.cell[2]);
-  for (const piece of pending) {
+  for (const piece of draft.pieces.pieces) {
     if (piece.spec.body.shape === 'leanRamp') {
       const cells = leanCells(piece);
       const [low, high] = [cells[0], cells[cells.length - 1]];
@@ -201,6 +236,7 @@ function addSupports(draft: Draft) {
       fill(piece.cell[0] + dx, piece.cell[1] + dy, piece.cell[2]);
     }
   }
+  packSupports(draft, wanted);
 }
 
 function make(id: string, level: GalleryLevel, build: (draft: Draft) => void, followDelay?: number): GalleryItem {

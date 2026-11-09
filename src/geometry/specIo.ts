@@ -4,7 +4,7 @@ import { adaptChannels } from './validate';
 
 export const WIDTHS = [1, 2];
 export const LENGTHS = [1, 2, 3];
-export const HEIGHTS = [0.5, 1, 1.5, 2];
+export const HEIGHTS = [0.5, 1, 1.5, 2, 3, 4];
 
 /** Designs saved before lanes existed use ports like "N.T"; they now read "N.T.0". */
 const migratePort = (port: string) => (/\.-?\d$/.test(port) ? port : `${port}.0`) as Port;

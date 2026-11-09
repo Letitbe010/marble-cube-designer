@@ -72,6 +72,13 @@ const lean = (size: [number, number, number]): PieceSpec => {
 };
 
 Object.assign(PRESETS, {
+  column2: solid('box', [1, 1, 2]),
+  column3: solid('box', [1, 1, 3]),
+  column4: solid('box', [1, 1, 4]),
+  wall1: solid('box', [2, 1, 1]),
+  wall2: solid('box', [2, 1, 2]),
+  wall3: solid('box', [2, 1, 3]),
+  wall4: solid('box', [2, 1, 4]),
   leanRamp2: lean([1, 2, 1.5]),
   leanRamp3: lean([1, 3, 2]),
   seesaw: solid('seesaw', [1, 3, 1]),
@@ -89,8 +96,9 @@ Object.assign(PRESETS, {
   twinIntoHole: boxPiece([c('N.T.-1', 'D.0'), c('N.T.1', 'D.0')]),
 } satisfies Record<string, PieceSpec>);
 
-export const LIBRARY: { category: 'catBlocks' | 'catStructures' | 'catChannels' | 'catLow' | 'catRamps' | 'catSpecial' | 'catDouble' | 'catMoving'; items: string[] }[] = [
+export const LIBRARY: { category: 'catBlocks' | 'catStructures' | 'catChannels' | 'catLow' | 'catRamps' | 'catSpecial' | 'catDouble' | 'catMoving' | 'catTall'; items: string[] }[] = [
   { category: 'catBlocks', items: ['cube', 'halfBlock', 'longBlock2', 'longBlock3', 'plate'] },
+  { category: 'catTall', items: ['column2', 'column3', 'column4', 'wall1', 'wall2', 'wall3', 'wall4'] },
   { category: 'catChannels', items: ['straightTop', 'curveTop', 'crossTop', 'drop', 'straightTunnel', 'curveTunnel', 'topToTunnel', 'underside', 'double'] },
   { category: 'catRamps', items: ['rampStraight', 'rampLow', 'rampCurve', 'rampCurveMirror', 'rampCurveLow', 'rampCurveLowMirror', 'rampLong2', 'rampLong3', 'waveLong3', 'tunnelRamp'] },
   { category: 'catSpecial', items: ['start', 'startLow', 'funnelTunnel', 'funnelDrop', 'stop', 'stopLow', 'basinCross', 'basinCrossLow', 'chamberCross', 'chamberDrop', 'spiral', 'spiralMirror'] },

@@ -58,6 +58,14 @@ describe('gallery', () => {
     });
   }
 
+  it('builds tall structures from large blocks instead of many cubes', () => {
+    const tower = GALLERY.find((item) => item.id === 'grandTour')!;
+    expect(tower.assembly.pieces.length).toBeLessThan(45);
+    const shapes = new Set(tower.assembly.pieces.map((p) => p.spec.body.size.join('x')));
+    expect([...shapes].some((size) => size.endsWith('x3') || size.endsWith('x4'))).toBe(true);
+    expect([...shapes].some((size) => size.startsWith('2x1'))).toBe(true);
+  });
+
   it('prints every piece in one part with locators', () => {
     const seen = new Set<string>();
     for (const { assembly } of GALLERY) {
