@@ -2,6 +2,7 @@ import type { Manifold, ManifoldToplevel } from 'manifold-3d';
 import { buildBody } from './body';
 import { buildCavityCutters, type Sweep } from './cavities';
 import { boreRadius, CONFIG, ROOF_PEAK_FACTOR } from './config';
+import { addStuds, cutPockets, type StudReport } from './locators';
 import { channelPath } from './paths';
 import type { PieceSpec, Vec3 } from './ports';
 
@@ -13,11 +14,15 @@ export interface BuildResult {
   volume: number;
   /** Number of disconnected solids; anything but 1 means the piece fell apart. */
   pieces: number;
+  /** Corner studs of the piece, when it was built with locators. */
+  studs?: StudReport;
 }
 
 export interface BuildOptions {
   /** Keeps only a central slice this thick along Y (used for the calibration piece). */
   sliceThickness?: number;
+  /** Adds corner studs on top and matching pockets underneath. */
+  locators?: boolean;
 }
 
 /** Height added above an open channel so the cut clears the top of the piece. */
@@ -67,6 +72,11 @@ export function toResult(solid: Manifold): BuildResult {
 
 /** Builds the solid for a piece. The caller owns the returned manifold. */
 export function buildSolid(wasm: ManifoldToplevel, spec: PieceSpec, options: BuildOptions = {}): Manifold {
+  return buildReportedSolid(wasm, spec, options).solid;
+}
+
+/** Builds a piece's solid, reporting which corner studs it could keep. */
+export function buildReportedSolid(wasm: ManifoldToplevel, spec: PieceSpec, options: BuildOptions = {}): { solid: Manifold; studs?: StudReport } {
   const { Manifold } = wasm;
   const { cubeSize } = CONFIG;
   const owned: Manifold[] = [];
@@ -82,14 +92,23 @@ export function buildSolid(wasm: ManifoldToplevel, spec: PieceSpec, options: Bui
     ].map(keep);
     if (cutters.length) solid = keep(solid.subtract(keep(Manifold.union(cutters))));
 
+    let studs: StudReport | undefined;
+    if (options.locators) {
+      solid = keep(cutPockets(wasm, solid, spec.body));
+      const added = addStuds(wasm, solid, spec.body);
+      solid = keep(added.solid);
+      studs = added.report;
+    }
+
     if (options.sliceThickness) {
       const t = options.sliceThickness;
       const slab = keep(keep(Manifold.cube([cubeSize * 2, t, cubeSize * 2])).translate([-cubeSize / 2, (cubeSize - t) / 2, -cubeSize / 2]));
       solid = keep(solid.intersect(slab));
     }
 
-    owned.splice(owned.indexOf(solid), 1);
-    return solid;
+    // A step that changed nothing hands back the same solid, so every copy has to go.
+    for (let i = owned.length - 1; i >= 0; i--) if (owned[i] === solid) owned.splice(i, 1);
+    return { solid, studs };
   } finally {
     owned.forEach((m) => m.delete());
   }
@@ -97,9 +116,9 @@ export function buildSolid(wasm: ManifoldToplevel, spec: PieceSpec, options: Bui
 
 /** Builds a piece and returns its mesh, as the viewer shows it. */
 export function buildPiece(wasm: ManifoldToplevel, spec: PieceSpec, options: BuildOptions = {}): BuildResult {
-  const solid = buildSolid(wasm, spec, options);
+  const { solid, studs } = buildReportedSolid(wasm, spec, options);
   try {
-    return toResult(solid);
+    return { ...toResult(solid), studs };
   } finally {
     solid.delete();
   }

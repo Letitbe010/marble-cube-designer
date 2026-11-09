@@ -48,6 +48,8 @@ export class AssemblyView {
   private problems: THREE.Mesh[] = [];
   /** Called on every frame with the seconds since the previous one. */
   onFrame: ((elapsed: number) => void) | null = null;
+  private readonly plateMaterial = new THREE.MeshStandardMaterial({ color: 0xb9bdc2, roughness: 0.8, flatShading: true });
+  private readonly plates = new THREE.Group();
   private readonly ghost = new THREE.Mesh(
     new THREE.BufferGeometry(),
     new THREE.MeshStandardMaterial({ color: 0x2f8f5b, transparent: true, opacity: 0.55, depthWrite: false, flatShading: true }),
@@ -71,7 +73,7 @@ export class AssemblyView {
     this.ghost.matrixAutoUpdate = false;
     this.ghost.visible = false;
     this.ghost.renderOrder = 3;
-    this.scene.add(this.ghost, this.overlay);
+    this.scene.add(this.ghost, this.overlay, this.plates);
 
     container.appendChild(this.renderer.domElement);
     this.renderer.setPixelRatio(window.devicePixelRatio);
@@ -238,6 +240,17 @@ export class AssemblyView {
     const offset = this.camera.position.clone().sub(this.controls.target);
     this.controls.target.set(x, y, z);
     this.camera.position.copy(this.controls.target).add(offset.setLength(Math.min(offset.length(), 320)));
+  }
+
+  /** Shows base plates under the assembly; each is placed by its matrix. */
+  setPlates(plates: { geometry: THREE.BufferGeometry; matrix: number[] }[]) {
+    this.plates.clear();
+    for (const { geometry, matrix } of plates) {
+      const mesh = new THREE.Mesh(geometry, this.plateMaterial);
+      mesh.matrixAutoUpdate = false;
+      mesh.matrix.fromArray(matrix);
+      this.plates.add(mesh);
+    }
   }
 
   setGhost(ghost: { geometry: THREE.BufferGeometry; matrix: number[] } | null) {

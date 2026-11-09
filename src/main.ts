@@ -39,15 +39,16 @@ const SECTION_LABELS: Record<Section, StringKey> = {
 interface Saved {
   lang: Lang;
   spec: PieceSpec;
+  locators: boolean;
 }
 
 function load(): Saved {
-  const fallback: Saved = { lang: 'eu', spec: PRESETS.curveTop };
+  const fallback: Saved = { lang: 'eu', spec: PRESETS.curveTop, locators: true };
   try {
     const data = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
     if (!data) return fallback;
     const lang = LANGS.includes(data.lang) ? (data.lang as Lang) : fallback.lang;
-    return { lang, spec: parseSpec(data) };
+    return { lang, spec: parseSpec(data), locators: data.locators !== false };
   } catch {
     return fallback;
   }
@@ -68,6 +69,7 @@ const state = {
   cavityCell: [0, 0] as [number, number],
   split: false,
   engrave: true,
+  locators: saved.locators,
   importFailed: false,
   seeThrough: false,
   rejected: null as IssueCode | null,
@@ -85,7 +87,7 @@ let simulation: SimulationController | null = null;
 
 function persist() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ lang: state.lang, spec: state.spec }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ lang: state.lang, spec: state.spec, locators: state.locators }));
   } catch {
     // Storage can be unavailable (private mode); the design just won't be remembered.
   }
@@ -94,7 +96,7 @@ function persist() {
 function rebuild() {
   if (!wasm || !viewer) return;
   try {
-    state.result = buildPiece(wasm, state.spec);
+    state.result = buildPiece(wasm, state.spec, { locators: state.locators });
     state.buildFailed = false;
     viewer.setResult(state.result);
   } catch (error) {
@@ -203,7 +205,7 @@ const stlOf = ({ positions, triangles }: BuildResult, name: string) => toBinaryS
 
 async function exportPiece() {
   if (!wasm) return;
-  const { id, parts } = buildPrintParts(wasm, state.spec, { split: state.split, engrave: state.engrave });
+  const { id, parts } = buildPrintParts(wasm, state.spec, { split: state.split, engrave: state.engrave, locators: state.locators });
   const name = `${id}-${pieceFileName()}`;
   if (parts.length === 1) {
     download(stlOf(parts[0].result, name), `${name}.stl`, STL_TYPE);
@@ -219,7 +221,7 @@ async function exportLibrary() {
   const zip = new JSZip();
   const manifest: string[] = ['id\tpiece\tvolume_cm3'];
   for (const [key, spec] of Object.entries(PRESETS)) {
-    const { id, parts } = buildPrintParts(wasm, spec, { engrave: true });
+    const { id, parts } = buildPrintParts(wasm, spec, { engrave: true, locators: state.locators });
     zip.file(`${key}-${id}.stl`, stlOf(parts[0].result, id));
     manifest.push(`${id}\t${key}\t${(parts[0].result.volume / 1000).toFixed(1)}`);
   }
@@ -390,6 +392,8 @@ function render() {
     ${result ? `<p class="stats">${t('stats', { volume: (result.volume / 1000).toFixed(1), tris: String(result.triangles.length / 3) })}</p>` : wasm ? '' : `<p class="stats">${t('loading')}</p>`}
     <p class="stats">ID: ${pieceId(spec)}</p>
     ${canSplit(spec) ? `<label class="toggle"><input type="checkbox" id="split"${state.split ? ' checked' : ''} /> ${t('printSplit')}</label>` : ''}
+    <label class="toggle"><input type="checkbox" id="locators"${state.locators ? ' checked' : ''} /> ${t('printLocators')}</label>
+    ${result?.studs && result.studs.placed < result.studs.total ? `<div class="notice warn">${t('studsLost', { placed: String(result.studs.placed), total: String(result.studs.total) })}</div>` : ''}
     <label class="toggle"><input type="checkbox" id="engrave"${state.engrave ? ' checked' : ''} /> ${t('printEngrave')}</label>
     <button class="btn primary spaced" id="export"${canExport ? '' : ' disabled'}>${t('exportStl')}</button>
     <button class="btn wide" id="library"${wasm ? '' : ' disabled'}>${t('exportLibrary')}</button>
@@ -447,6 +451,14 @@ panel.addEventListener('click', (event) => {
 
 panel.addEventListener('change', (event) => {
   const target = event.target as HTMLInputElement | HTMLSelectElement;
+  if (target.id === 'locators') {
+    state.locators = (target as HTMLInputElement).checked;
+    persist();
+    rebuild();
+    assembly?.refresh();
+    render();
+    return;
+  }
   if (state.tab === 'assembly') {
     assembly?.handleChange(target);
     return;
@@ -501,6 +513,7 @@ loadManifold()
       container: document.querySelector<HTMLElement>('#assemblyViewport')!,
       t,
       currentSpec: () => state.spec,
+      locators: () => state.locators,
       onChange: render,
       download,
     });

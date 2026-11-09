@@ -37,6 +37,17 @@ export const CONFIG = {
   pinInset: 8,
   /** Depth of the identifier engraved on the underside. */
   idDepth: 0.6,
+  /** Corner studs on top of a piece and the pockets under the next one (PLAN-2, section 2.5). */
+  locatorSize: 8,
+  locatorHeight: 3,
+  locatorStraight: 1.25,
+  locatorClearance: 0.2,
+  locatorMouth: 0.3,
+  /** Distance from the cell edge to the centre of a stud. */
+  locatorInset: 6,
+  plateThickness: 4,
+  /** Largest side of a base plate tile, in cells, set by the size of a print bed. */
+  plateMaxCells: 4,
   levels: {
     T: { z: 50, section: 'groove' },
     M: { z: 25, section: 'tunnel' },

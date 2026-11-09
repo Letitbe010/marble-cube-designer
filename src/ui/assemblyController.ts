@@ -21,6 +21,10 @@ import {
 import { checkAssembly, type CheckIssue } from '../assembly/checks';
 import { exportAssemblyZip } from '../assembly/export';
 import { pieceList } from '../assembly/pieceList';
+import { plateTiles } from '../assembly/plates';
+import { CONFIG } from '../geometry/config';
+import { buildBasePlate } from '../geometry/locators';
+import { toResult } from '../geometry/piece';
 import { buildPiece } from '../geometry/piece';
 import type { PieceSpec } from '../geometry/ports';
 import { LIBRARY, PRESETS } from '../geometry/presets';
@@ -36,6 +40,7 @@ export interface AssemblyDeps {
   container: HTMLElement;
   t: (key: StringKey, values?: Record<string, string>) => string;
   currentSpec: () => PieceSpec;
+  locators: () => boolean;
   onChange: () => void;
   download: (content: ArrayBuffer | string, name: string, type: string) => void;
 }
@@ -95,13 +100,31 @@ export class AssemblyController {
   }
 
   private geometryFor(spec: PieceSpec): BufferGeometry {
-    const key = JSON.stringify(spec);
+    const locators = this.deps.locators();
+    const key = `${locators}|${JSON.stringify(spec)}`;
     let geometry = this.geometries.get(key);
     if (!geometry) {
-      geometry = toFlatGeometry(buildPiece(this.deps.wasm, spec));
+      geometry = toFlatGeometry(buildPiece(this.deps.wasm, spec, { locators }));
       this.geometries.set(key, geometry);
     }
     return geometry;
+  }
+
+  private plateGeometry(size: [number, number]): BufferGeometry {
+    const key = `plate|${size.join('x')}`;
+    let geometry = this.geometries.get(key);
+    if (!geometry) {
+      const plate = buildBasePlate(this.deps.wasm, size[0], size[1]);
+      geometry = toFlatGeometry(toResult(plate));
+      plate.delete();
+      this.geometries.set(key, geometry);
+    }
+    return geometry;
+  }
+
+  /** Redraws everything after the locator setting changes. */
+  refresh() {
+    this.syncView();
   }
 
   private syncView() {
@@ -117,6 +140,14 @@ export class AssemblyController {
       })),
       this.selected,
       flagged,
+    );
+    const { cubeSize, plateThickness } = CONFIG;
+    const tiles = this.deps.locators() ? plateTiles(this.assembly) : [];
+    this.view.setPlates(
+      tiles.map(({ cell, size }) => ({
+        geometry: this.plateGeometry(size),
+        matrix: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, cell[0] * cubeSize, cell[1] * cubeSize, -plateThickness, 1],
+      })),
     );
     this.syncGhost();
   }
@@ -209,7 +240,7 @@ export class AssemblyController {
   }
 
   private async exportZip() {
-    const data = await exportAssemblyZip(this.deps.wasm, this.assembly);
+    const data = await exportAssemblyZip(this.deps.wasm, this.assembly, { locators: this.deps.locators() });
     this.deps.download(data, `${this.assembly.name}.zip`, 'application/zip');
   }
 
@@ -364,6 +395,8 @@ export class AssemblyController {
       ${this.renderList()}
 
       <h2>${t('asmAssembly')}</h2>
+      <label class="toggle"><input type="checkbox" id="locators"${this.deps.locators() ? ' checked' : ''} /> ${t('printLocators')}</label>
+      ${this.deps.locators() && plateTiles(this.assembly).length ? `<p class="stats">${t('asmPlates', { count: String(plateTiles(this.assembly).length) })}</p>` : ''}
       <p class="stats">${t('asmCount', { count: String(this.assembly.pieces.length) })}</p>
       <div class="presets files">
         ${button('data-asm="undo"', t('asmUndo'), this.history.canUndo)}

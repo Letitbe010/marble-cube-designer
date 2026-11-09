@@ -69,6 +69,8 @@ Gridfinity sistemaren printzipioa hartzen da (forma alakatuak, bere kabuz zentra
 
 Geometria bakarrak balio du azpiko baserako eta zutabean pilatzeko, eta 90°-ko biraketa guztiak onartzen ditu. Zati zuzenak kuboa arrapalan gora igotzea eragozten du.
 
+Inplementazioan erabakitakoa (2026-11-09): tetoien zentroa gelaxkaren ertzetik 6 mm-ra dago eta zati zuzena 1,25 mm-koa da. Poltsak puntan amaitzen dira (5,45 mm-ko sakonera), sabai laurik gabe, zubirik gabe inprimatzeko. Tetoiak bloke-formetan bakarrik jartzen dira; poltsak forma guztietan. Kanal edo hutsune baten gainean geratuko litzatekeen tetoia kendu egiten da, eta aplikazioak abisua ematen du. Plaka 4 mm-ko lodierakoa da, azpiko geruzaren laukizuzena estaltzen du, eta 4 × 4 gelaxkako zatietan banatzen da; zatiak oraindik ez dira elkarri lotzen.
+
 Mugak: goiko aurpegia ez da laua (Cuboro errealekin bateragarritasuna galtzen da; erabiltzaileak ez du horrelakorik); 3 mm-ko tetoiek ez dute altxatzea eragozten; plakaren tamaina ohantzeak mugatzen du, eta pista handietan plaka-zatiak lotu beharko dira. Inbutuek, espiralak eta kanal bikoitzek izkinak libre uzten dituztela egiaztatu behar da. Altzairuzko kanika erabiltzen denez, imanak ez dira hartzen sistema nagusitzat.
 
 ### 2.6 Hasierako blokea

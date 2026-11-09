@@ -1,6 +1,7 @@
 import type { Manifold, ManifoldToplevel } from 'manifold-3d';
 import { CONFIG } from './config';
-import { buildSolid, toResult, type BuildResult } from './piece';
+import { buildReportedSolid, toResult, type BuildResult } from './piece';
+import type { StudReport } from './locators';
 import { bodyHeight, channelKey, type PieceSpec } from './ports';
 
 export interface PrintOptions {
@@ -8,6 +9,8 @@ export interface PrintOptions {
   split?: boolean;
   /** Engraves the piece identifier on the underside. */
   engrave?: boolean;
+  /** Adds corner studs on top and matching pockets underneath. */
+  locators?: boolean;
 }
 
 export interface PrintPart {
@@ -19,6 +22,7 @@ export interface PrintPart {
 export interface PrintOutput {
   id: string;
   parts: PrintPart[];
+  studs?: StudReport;
 }
 
 /** Share of a tool that must lie in solid material for it to count as fitting. */
@@ -113,6 +117,11 @@ function engraveId(wasm: ManifoldToplevel, solid: Manifold, id: string, spec: Pi
     [spanX - blockWidth - ID_MARGIN, ID_MARGIN],
     [ID_MARGIN, spanY - DIGIT_HEIGHT - ID_MARGIN],
     [spanX - blockWidth - ID_MARGIN, spanY - DIGIT_HEIGHT - ID_MARGIN],
+    // Between the pockets, for pieces whose corners are taken by locators.
+    [(spanX - blockWidth) / 2, ID_MARGIN],
+    [(spanX - blockWidth) / 2, spanY - DIGIT_HEIGHT - ID_MARGIN],
+    [ID_MARGIN, (spanY - DIGIT_HEIGHT) / 2],
+    [spanX - blockWidth - ID_MARGIN, (spanY - DIGIT_HEIGHT) / 2],
     [(spanX - blockWidth) / 2, (spanY - DIGIT_HEIGHT) / 2],
   ];
 
@@ -174,7 +183,9 @@ export function buildPrintParts(wasm: ManifoldToplevel, spec: PieceSpec, options
   };
 
   try {
-    let solid = keep(buildSolid(wasm, spec));
+    const built = buildReportedSolid(wasm, spec, { locators: options.locators });
+    const { studs } = built;
+    let solid = keep(built.solid);
     if (options.engrave) solid = keep(engraveId(wasm, solid, id, spec));
 
     if (options.split && canSplit(spec)) {
@@ -184,6 +195,7 @@ export function buildPrintParts(wasm: ManifoldToplevel, spec: PieceSpec, options
       halves.sort((a, b) => a.boundingBox().min[2] - b.boundingBox().min[2]);
       return {
         id,
+        studs,
         parts: [
           { suffix: 'bottom', result: toResult(keep(placeOnBed(halves[0]))) },
           { suffix: 'top', result: toResult(keep(placeOnBed(halves[1]))) },
@@ -194,7 +206,7 @@ export function buildPrintParts(wasm: ManifoldToplevel, spec: PieceSpec, options
     // An arch printed upright would need its crown supported; on its side it needs nothing.
     if (spec.body.shape === 'arch') solid = keep(placeOnBed(keep(solid.rotate([90, 0, 0]))));
 
-    return { id, parts: [{ suffix: '', result: toResult(solid) }] };
+    return { id, studs, parts: [{ suffix: '', result: toResult(solid) }] };
   } finally {
     owned.forEach((m) => m.delete());
   }
