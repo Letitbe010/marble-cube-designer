@@ -25,6 +25,17 @@ function faceLabel(text: string): THREE.Sprite {
   return sprite;
 }
 
+/** Turns a built mesh into flat-shaded geometry for display. */
+export function toFlatGeometry(result: BuildResult): THREE.BufferGeometry {
+  const indexed = new THREE.BufferGeometry();
+  indexed.setAttribute('position', new THREE.BufferAttribute(result.positions, 3));
+  indexed.setIndex(new THREE.BufferAttribute(result.triangles, 1));
+  const flat = indexed.toNonIndexed();
+  flat.computeVertexNormals();
+  indexed.dispose();
+  return flat;
+}
+
 /** 3D view of the current piece, with clickable port markers. */
 export class Viewer {
   private readonly renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -126,14 +137,8 @@ export class Viewer {
   }
 
   setResult(result: BuildResult) {
-    const indexed = new THREE.BufferGeometry();
-    indexed.setAttribute('position', new THREE.BufferAttribute(result.positions, 3));
-    indexed.setIndex(new THREE.BufferAttribute(result.triangles, 1));
-    const flat = indexed.toNonIndexed();
-    flat.computeVertexNormals();
-    indexed.dispose();
     this.mesh.geometry.dispose();
-    this.mesh.geometry = flat;
+    this.mesh.geometry = toFlatGeometry(result);
   }
 
   setSelected(selected: Port | null) {

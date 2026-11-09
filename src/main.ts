@@ -3,7 +3,8 @@ import type { ManifoldToplevel } from 'manifold-3d';
 import './style.css';
 import { buildPiece, type BuildResult } from './geometry/piece';
 import { CAVITY_SIZES, cavityFits } from './geometry/cavities';
-import { CAVITY_TYPES, channel, normalizeBody, portsFor, SHAPES, UNIT_BODY, type Body, type Cavity, type CavityType, type Channel, type PieceSpec, type Port, type Shape } from './geometry/ports';
+import { CAVITY_TYPES, channel, normalizeBody, portsFor, SHAPES, type Body, type Cavity, type CavityType, type Channel, type PieceSpec, type Port, type Shape } from './geometry/ports';
+import { HEIGHTS, LENGTHS, parseSpec, WIDTHS } from './geometry/specIo';
 import { CALIBRATION, CALIBRATION_THICKNESS, LIBRARY, PRESETS } from './geometry/presets';
 import { toBinaryStl } from './geometry/stl';
 import { adaptChannels, validateDesign, type IssueCode } from './geometry/validate';
@@ -11,13 +12,11 @@ import type { Section } from './geometry/config';
 import { buildPrintParts, canSplit, pieceId } from './geometry/print';
 import { loadManifold } from './geometry/wasm';
 import { LANGS, portName, translate, type Lang, type StringKey } from './ui/i18n';
+import { AssemblyController } from './ui/assemblyController';
 import { Viewer } from './ui/viewer';
 
 const STORAGE_KEY = 'marble-cube-designer';
 
-const WIDTHS = [1, 2];
-const LENGTHS = [1, 2, 3];
-const HEIGHTS = [0.5, 1, 1.5, 2];
 const CAVITY_LABELS: Record<CavityType, StringKey> = {
   funnel: 'cavityFunnel',
   basin: 'cavityBasin',
@@ -47,28 +46,6 @@ interface Saved {
   spec: PieceSpec;
 }
 
-/** Designs saved before lanes existed use ports like "N.T"; they now read "N.T.0". */
-const migratePort = (port: string) => (/\.\d$/.test(port) ? port : `${port}.0`) as Port;
-
-function loadBody(raw: Partial<Body> | undefined): Body {
-  const size = raw?.size;
-  const valid = size?.length === 3 && WIDTHS.includes(size[0]) && LENGTHS.includes(size[1]) && HEIGHTS.includes(size[2]);
-  if (!valid || !raw?.shape || !SHAPES.includes(raw.shape)) return UNIT_BODY;
-  return normalizeBody({ shape: raw.shape, size });
-}
-
-/** Rebuilds a piece from stored data, dropping whatever no longer fits. */
-function parseSpec(data: { spec?: Partial<PieceSpec>; channels?: unknown; segments?: unknown }): PieceSpec {
-  const body = loadBody(data.spec?.body);
-  const stored = (data.spec?.channels ?? data.channels ?? data.segments) as (Partial<Channel> & { from: string; to: string })[];
-  const channels = adaptChannels(
-    stored.map((s) => ({ ...s, from: migratePort(s.from), to: migratePort(s.to) }) as Channel),
-    body,
-  );
-  const cavities = ((data.spec?.cavities ?? []) as Cavity[]).filter((c) => CAVITY_TYPES.includes(c.type) && cavityFits(c, body));
-  return { body, channels, cavities };
-}
-
 function load(): Saved {
   const fallback: Saved = { lang: 'eu', spec: PRESETS.curveTop };
   try {
@@ -85,6 +62,7 @@ const saved = load();
 const state = {
   lang: saved.lang,
   spec: saved.spec,
+  tab: 'piece' as 'piece' | 'assembly',
   picked: null as Port | null,
   from: 'N.T.0' as Port,
   to: 'S.T.0' as Port,
@@ -107,6 +85,7 @@ const t = (key: StringKey, values?: Record<string, string>) => translate(state.l
 
 let wasm: ManifoldToplevel | null = null;
 let viewer: Viewer | null = null;
+let assembly: AssemblyController | null = null;
 
 function persist() {
   try {
@@ -351,8 +330,28 @@ function renderChannelEditor(spec: PieceSpec, ports: Port[], notices: string): s
     ${notices}`;
 }
 
+function renderHeader(): string {
+  const tab = (id: typeof state.tab, label: StringKey) => `<button class="tab${state.tab === id ? ' active' : ''}" data-tab="${id}">${t(label)}</button>`;
+  return `
+    <header>
+      <h1>Marble Cube Designer</h1>
+      <div class="lang">${LANGS.map((l) => `<button data-lang="${l}" class="${l === state.lang ? 'active' : ''}">${l.toUpperCase()}</button>`).join('')}</div>
+    </header>
+    <nav class="tabs">${tab('piece', 'tabPiece')}${tab('assembly', 'tabAssembly')}</nav>`;
+}
+
+function showTab() {
+  document.querySelector<HTMLElement>('#viewport')!.hidden = state.tab !== 'piece';
+  document.querySelector<HTMLElement>('#assemblyViewport')!.hidden = state.tab !== 'assembly';
+}
+
 function render() {
   document.documentElement.lang = state.lang;
+  showTab();
+  if (state.tab === 'assembly') {
+    panel.innerHTML = `${renderHeader()}${assembly ? assembly.render() : `<p class="stats">${t('loading')}</p>`}<footer>${t('disclaimer')}</footer>`;
+    return;
+  }
   const { spec, result } = state;
   const ports = portsFor(spec.body);
   const issues = validateDesign(spec);
@@ -368,10 +367,7 @@ function render() {
   ].filter(Boolean).join('');
 
   panel.innerHTML = `
-    <header>
-      <h1>Marble Cube Designer</h1>
-      <div class="lang">${LANGS.map((l) => `<button data-lang="${l}" class="${l === state.lang ? 'active' : ''}">${l.toUpperCase()}</button>`).join('')}</div>
-    </header>
+    ${renderHeader()}
     <p class="hint">${t('hint')}</p>
 
     ${LIBRARY.map(({ category, items }) => `
@@ -407,12 +403,17 @@ function render() {
 panel.addEventListener('click', (event) => {
   const target = (event.target as HTMLElement).closest<HTMLElement>('button');
   if (!target) return;
-  const { lang, preset, remove, removeCavity } = target.dataset;
+  const { lang, preset, remove, removeCavity, tab } = target.dataset;
 
-  if (lang) {
+  if (tab) {
+    state.tab = tab as typeof state.tab;
+    render();
+  } else if (lang) {
     state.lang = lang as Lang;
     persist();
     render();
+  } else if (state.tab === 'assembly') {
+    assembly?.handleClick(target);
   } else if (preset) {
     setSpec(PRESETS[preset]);
   } else if (remove !== undefined) {
@@ -440,6 +441,10 @@ panel.addEventListener('click', (event) => {
 
 panel.addEventListener('change', (event) => {
   const target = event.target as HTMLInputElement | HTMLSelectElement;
+  if (state.tab === 'assembly') {
+    assembly?.handleChange(target);
+    return;
+  }
   const { body } = state.spec;
   const [x, y, z] = body.size;
 
@@ -467,6 +472,12 @@ panel.addEventListener('change', (event) => {
   }
 });
 
+window.addEventListener('keydown', (event) => {
+  if (state.tab !== 'assembly' || !assembly) return;
+  if ((event.target as HTMLElement).matches('select, input, textarea')) return;
+  if (assembly.handleKey(event)) event.preventDefault();
+});
+
 syncPortSelection();
 render();
 viewer = new Viewer(document.querySelector<HTMLElement>('#viewport')!, onPortClick);
@@ -475,6 +486,14 @@ loadManifold()
   .then((instance) => {
     wasm = instance;
     rebuild();
+    assembly = new AssemblyController({
+      wasm: instance,
+      container: document.querySelector<HTMLElement>('#assemblyViewport')!,
+      t,
+      currentSpec: () => state.spec,
+      onChange: render,
+      download,
+    });
   })
   .catch((error) => {
     console.error(error);

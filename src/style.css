@@ -19,8 +19,18 @@ html, body, #app { height: 100%; margin: 0; }
 #app { display: grid; grid-template-columns: 340px 1fr; background: var(--bg); }
 
 #panel { background: var(--panel); border-right: 1px solid var(--line); padding: 18px; overflow-y: auto; }
-#viewport { position: relative; min-width: 0; min-height: 0; }
-#viewport canvas { display: block; position: absolute; inset: 0; }
+#views { position: relative; min-width: 0; min-height: 0; }
+#viewport, #assemblyViewport { position: absolute; inset: 0; }
+#viewport[hidden], #assemblyViewport[hidden] { display: none; }
+#viewport canvas, #assemblyViewport canvas { display: block; position: absolute; inset: 0; }
+
+.tabs { display: flex; gap: 2px; margin-top: 12px; border-bottom: 1px solid var(--line); }
+.tab { border: none; background: none; padding: 7px 10px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.wide-select { width: 100%; padding: 6px; border: 1px solid var(--line); border-radius: 5px; background: #fff; }
+.move-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.move-grid .btn { text-align: center; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 h1 { font-size: 18px; margin: 0; }
