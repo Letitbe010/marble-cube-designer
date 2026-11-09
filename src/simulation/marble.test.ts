@@ -162,7 +162,7 @@ describe('how a run can end', () => {
     expect(limit).toBeCloseTo(652, 0);
     const curve = boxPiece([channel('N.T.0', 'E.M.0')]);
     const fast = simulateAssembly(build([curve, [1, 3, 0]]), { ...LOSSLESS, startSpeed: limit + 30 })[0];
-    const slow = simulateAssembly(build([curve, [1, 3, 0]]), { ...LOSSLESS, startSpeed: limit - 200 })[0];
+    const slow = simulateAssembly(build([curve, [1, 3, 0]]), LOSSLESS)[0];
     expect(fast.outcome).toBe('derailed');
     expect(slow.outcome).toBe('noConnection');
   });
