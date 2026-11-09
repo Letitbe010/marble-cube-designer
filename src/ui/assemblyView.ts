@@ -40,6 +40,7 @@ export class AssemblyView {
   private readonly overlay = new THREE.Group();
   private readonly marbleGeometry = new THREE.SphereGeometry(MARBLE_RADIUS, 24, 16);
   private readonly marbleMaterial = new THREE.MeshStandardMaterial({ color: 0x1f5fbf, roughness: 0.15, metalness: 0.2 });
+  private readonly secondMarbleMaterial = new THREE.MeshStandardMaterial({ color: 0xd9822b, roughness: 0.15, metalness: 0.2 });
   private readonly problemMaterial = new THREE.MeshBasicMaterial({ color: 0xb3261e, depthTest: false });
   private readonly clock = new THREE.Clock();
   private trails: THREE.Line[] = [];
@@ -211,7 +212,7 @@ export class AssemblyView {
 
   setMarbles(positions: Vec3[]) {
     this.syncMeshes(this.marbles, positions, () => {
-      const mesh = new THREE.Mesh(this.marbleGeometry, this.marbleMaterial);
+      const mesh = new THREE.Mesh(this.marbleGeometry, this.marbles.length % 2 ? this.secondMarbleMaterial : this.marbleMaterial);
       mesh.renderOrder = 5;
       return mesh;
     });

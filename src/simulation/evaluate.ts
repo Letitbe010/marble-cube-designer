@@ -2,6 +2,8 @@ import type { Assembly } from '../assembly/model';
 import type { Vec3 } from '../geometry/ports';
 import { DEFAULT_PARAMS, simulateAssembly, type MarbleResult, type Outcome, type SimParams } from './marble';
 
+export { positionAt } from './marble';
+
 export type Verdict = 'good' | 'marginal' | 'problem';
 
 export interface CaseResult {
@@ -20,6 +22,8 @@ export interface Problem {
   position: Vec3;
   pieceId: string;
   crrs: number[];
+  /** When it happened, for an encounter between marbles. */
+  time?: number;
 }
 
 export interface Evaluation {
@@ -56,10 +60,12 @@ export function evaluateAssembly(assembly: Assembly, overrides: Partial<SimParam
     for (const { crr, result } of cases) {
       if (result.outcome === 'finished') continue;
       const pieceId = result.pieceIds[result.pieceIds.length - 1];
-      const key = `${result.outcome}|${pieceId}`;
+      // Marbles can meet anywhere along a piece, so encounters are told apart by place.
+      const place = result.outcome === 'collision' ? result.position.map((v) => Math.round(v / 20)).join(',') : pieceId;
+      const key = `${result.outcome}|${place}`;
       const known = problems.get(key);
-      if (known) known.crrs.push(crr);
-      else problems.set(key, { outcome: result.outcome, position: result.position, pieceId, crrs: [crr] });
+      if (known) known.crrs = [...new Set([...known.crrs, crr])];
+      else problems.set(key, { outcome: result.outcome, position: result.position, pieceId, crrs: [crr], time: result.outcome === 'collision' ? result.time : undefined });
     }
   }
 
@@ -71,25 +77,4 @@ export function evaluateAssembly(assembly: Assembly, overrides: Partial<SimParam
     else verdict = 'marginal';
   }
   return { marbles, verdict, problems: [...problems.values()] };
-}
-
-/** Marble position at a moment of a recorded journey. */
-export function positionAt(samples: MarbleResult['samples'], time: number): Vec3 {
-  if (time <= samples[0].time) return samples[0].position;
-  const last = samples[samples.length - 1];
-  if (time >= last.time) return last.position;
-  let low = 0;
-  let high = samples.length - 1;
-  while (high - low > 1) {
-    const middle = (low + high) >> 1;
-    if (samples[middle].time <= time) low = middle;
-    else high = middle;
-  }
-  const [a, b] = [samples[low], samples[high]];
-  const t = b.time === a.time ? 0 : (time - a.time) / (b.time - a.time);
-  return [
-    a.position[0] + (b.position[0] - a.position[0]) * t,
-    a.position[1] + (b.position[1] - a.position[1]) * t,
-    a.position[2] + (b.position[2] - a.position[2]) * t,
-  ];
 }

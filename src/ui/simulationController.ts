@@ -19,6 +19,7 @@ const OUTCOME_LABELS: Record<Outcome, StringKey> = {
   derailed: 'outcomeDerailed',
   noConnection: 'outcomeNoConnection',
   timeout: 'outcomeTimeout',
+  collision: 'outcomeCollision',
 };
 
 const FIELDS = [
@@ -115,6 +116,20 @@ export class SimulationController {
       this.rate = Number(target.value);
       return;
     }
+    if (target.id === 'simCount') {
+      this.params = { ...this.params, marbleCount: Number(target.value) as 1 | 2 };
+      this.recompute();
+      this.deps.onChange();
+      return;
+    }
+    if (target.id === 'simDelay') {
+      const delay = Number(target.value);
+      if (!Number.isFinite(delay) || delay < 0) return;
+      this.params = { ...this.params, followDelay: delay };
+      this.recompute();
+      this.deps.onChange();
+      return;
+    }
     const field = FIELDS.find((f) => f.id === target.id);
     const value = Number(target.value);
     if (!field || !Number.isFinite(value) || value < 0) return;
@@ -142,7 +157,7 @@ export class SimulationController {
     const verdict = evaluation?.verdict ?? null;
     const button = (attr: string, label: string, enabled = true) => `<button class="btn" ${attr}${enabled ? '' : ' disabled'}>${label}</button>`;
     const problems = (evaluation?.problems ?? [])
-      .map((p, i) => `<button class="notice issue error" data-sim-problem="${i}">${t(OUTCOME_LABELS[p.outcome])} · ${p.crrs.length}/3</button>`)
+      .map((p, i) => `<button class="notice issue error" data-sim-problem="${i}">${t(OUTCOME_LABELS[p.outcome])}${p.time !== undefined ? ` · ${p.time.toFixed(2)} s` : ''} · ${p.crrs.length}/3</button>`)
       .join('');
     const fields = FIELDS.map((f) => {
       const value = (this.params[f.param] as number) * f.scale;
@@ -167,6 +182,16 @@ export class SimulationController {
       <p class="hint">${t('simLegend')}</p>
 
       ${this.renderCases()}
+
+      <h2>${t('simMarbles')}</h2>
+      <div class="params two">
+        <label>${t('simCount')}<select id="simCount">
+          <option value="1"${this.params.marbleCount === 1 ? ' selected' : ''}>1</option>
+          <option value="2"${this.params.marbleCount === 2 ? ' selected' : ''}>2</option>
+        </select></label>
+        ${this.params.marbleCount === 2 ? `<label>${t('simDelay')}<input type="number" id="simDelay" min="0" step="0.1" value="${this.params.followDelay}" /></label>` : ''}
+      </div>
+      <p class="hint">${t('simMarblesHint')}</p>
 
       <h2>${t('simParams')}</h2>
       <div class="params two">${fields}</div>

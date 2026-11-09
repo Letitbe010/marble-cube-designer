@@ -1,5 +1,6 @@
 import type { Assembly } from '../assembly/model';
 import { buildRunGraph, facing, isEntry, isExit, landingDrop, MAX_DROP, projectOnPath, type End, type Run, type RunGraph } from '../assembly/runs';
+import { CONFIG } from '../geometry/config';
 import type { Vec3 } from '../geometry/ports';
 
 /** Every value is an assumption until measured on printed pieces (PLAN-3, section 5.3). */
@@ -20,6 +21,10 @@ export interface SimParams {
   timeLimit: number;
   /** Speed given to the marble at the start, in mm/s. */
   startSpeed: number;
+  /** With a single starting point, 2 releases a second marble behind the first. */
+  marbleCount: 1 | 2;
+  /** Seconds between the two marbles released at the same point. */
+  followDelay: number;
 }
 
 export const DEFAULT_PARAMS: SimParams = {
@@ -31,10 +36,12 @@ export const DEFAULT_PARAMS: SimParams = {
   gravity: 9810,
   timeLimit: 120,
   startSpeed: 0,
+  marbleCount: 1,
+  followDelay: 0.5,
 };
 
 /** `finished`: the marble came to rest at a stop or left through a hole onto the table. */
-export type Outcome = 'finished' | 'stopped' | 'derailed' | 'noConnection' | 'timeout';
+export type Outcome = 'finished' | 'stopped' | 'derailed' | 'noConnection' | 'timeout' | 'collision';
 
 export interface Sample {
   time: number;
@@ -268,9 +275,76 @@ function roll(start: Run, graph: RunGraph, params: SimParams): MarbleResult {
   }
 }
 
-/** Simulates one marble from each starting point of an assembly. */
+/** Marble position at a moment of a recorded journey. */
+export function positionAt(samples: MarbleResult['samples'], time: number): Vec3 {
+  if (time <= samples[0].time) return samples[0].position;
+  const last = samples[samples.length - 1];
+  if (time >= last.time) return last.position;
+  let low = 0;
+  let high = samples.length - 1;
+  while (high - low > 1) {
+    const middle = (low + high) >> 1;
+    if (samples[middle].time <= time) low = middle;
+    else high = middle;
+  }
+  const [a, b] = [samples[low], samples[high]];
+  const t = b.time === a.time ? 0 : (time - a.time) / (b.time - a.time);
+  return [
+    a.position[0] + (b.position[0] - a.position[0]) * t,
+    a.position[1] + (b.position[1] - a.position[1]) * t,
+    a.position[2] + (b.position[2] - a.position[2]) * t,
+  ];
+}
+
+const ENCOUNTER_STEP = 0.002;
+
+/** First moment two moving marbles touch, or null; a marble that has arrived no longer counts. */
+function firstEncounter(a: MarbleResult, b: MarbleResult): number | null {
+  const from = Math.max(a.samples[0].time, b.samples[0].time);
+  const to = Math.min(a.time, b.time);
+  for (let time = from; time <= to; time += ENCOUNTER_STEP) {
+    const [p, q] = [positionAt(a.samples, time), positionAt(b.samples, time)];
+    if (Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]) < CONFIG.ballDiameter) return time;
+  }
+  return null;
+}
+
+function stopAtEncounter(result: MarbleResult, time: number): MarbleResult {
+  const position = positionAt(result.samples, time);
+  const earlier = result.samples.filter((s) => s.time < time);
+  const speed = earlier.length ? earlier[earlier.length - 1].speed : 0;
+  return { ...result, outcome: 'collision', time, position, finalSpeed: speed, samples: [...earlier, { time, position, speed }] };
+}
+
+/** Ends marbles where they meet: what happens after an encounter is not simulated. */
+function applyEncounters(results: MarbleResult[]): MarbleResult[] {
+  const current = [...results];
+  for (;;) {
+    let first: { time: number; i: number; j: number } | null = null;
+    for (let i = 0; i < current.length; i++) {
+      if (current[i].outcome === 'collision') continue;
+      for (let j = i + 1; j < current.length; j++) {
+        if (current[j].outcome === 'collision') continue;
+        const time = firstEncounter(current[i], current[j]);
+        if (time !== null && (first === null || time < first.time)) first = { time, i, j };
+      }
+    }
+    if (!first) return current;
+    current[first.i] = stopAtEncounter(current[first.i], first.time);
+    current[first.j] = stopAtEncounter(current[first.j], first.time);
+  }
+}
+
+function delayed(result: MarbleResult, delay: number): MarbleResult {
+  return { ...result, time: result.time + delay, samples: result.samples.map((s) => ({ ...s, time: s.time + delay })) };
+}
+
+/** Simulates the marbles of an assembly: one per starting point, or two behind each other on a single one. */
 export function simulateAssembly(assembly: Assembly, overrides: Partial<SimParams> = {}): MarbleResult[] {
   const params = { ...DEFAULT_PARAMS, ...overrides };
   const graph = buildRunGraph(assembly);
-  return findStarts(graph).map((start) => roll(start, graph, params));
+  const starts = findStarts(graph);
+  const results = starts.map((start) => roll(start, graph, params));
+  if (params.marbleCount === 2 && starts.length === 1) results.push(delayed(roll(starts[0], graph, params), params.followDelay));
+  return applyEncounters(results);
 }

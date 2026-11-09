@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { addPiece, EMPTY_ASSEMBLY, type Assembly, type Cell } from '../assembly/model';
 import type { PieceSpec } from '../geometry/ports';
+import { CONFIG } from '../geometry/config';
 import { PRESETS } from '../geometry/presets';
 import { evaluateAssembly, positionAt } from './evaluate';
+import { simulateAssembly } from './marble';
 
 const build = (...placements: [PieceSpec, Cell][]): Assembly =>
   placements.reduce((assembly, [spec, cell]) => addPiece(assembly, spec, cell, 0), EMPTY_ASSEMBLY);
@@ -65,6 +67,79 @@ describe('evaluation', () => {
     const { marbles, verdict } = evaluateAssembly(mixed);
     expect(marbles.map((m) => m.verdict).sort()).toEqual(['good', 'problem']);
     expect(verdict).toBe('marginal');
+  });
+});
+
+describe('marbles meeting', () => {
+  // Two equal ramps feed the same crossing from the north and from the east.
+  const meeting = addPiece(
+    addPiece(addPiece(EMPTY_ASSEMBLY, PRESETS.crossTop, [3, 3, 0], 0), PRESETS.rampStraight, [3, 4, 1], 0),
+    PRESETS.rampStraight,
+    [4, 3, 1],
+    270,
+  );
+
+  it('marks an encounter when marbles reach a crossing together', () => {
+    const results = simulateAssembly(meeting);
+    expect(results.map((r) => r.outcome)).toEqual(['collision', 'collision']);
+  });
+
+  it('says where and when marbles met', () => {
+    const { problems } = evaluateAssembly(meeting);
+    const encounter = problems.find((p) => p.outcome === 'collision')!;
+    expect(encounter.time).toBeGreaterThan(0);
+    expect(encounter.crrs).toHaveLength(3); // both marbles of each case count once
+    expect(Math.hypot(encounter.position[0] - 175, encounter.position[1] - 175)).toBeLessThan(CONFIG.ballDiameter);
+  });
+
+  it('counts an encounter against the verdict', () => {
+    expect(evaluateAssembly(meeting).verdict).toBe('problem');
+  });
+
+  it('ends both journeys at the encounter', () => {
+    const [a, b] = simulateAssembly(meeting);
+    expect(a.time).toBe(b.time);
+    expect(a.samples[a.samples.length - 1].time).toBe(a.time);
+  });
+
+  it('finds no encounter when the marbles arrive at different times', () => {
+    const offset = addPiece(
+      addPiece(EMPTY_ASSEMBLY, PRESETS.crossTop, [3, 3, 0], 0),
+      PRESETS.rampStraight,
+      [3, 4, 1],
+      0,
+    );
+    const withLongerRoute = addPiece(addPiece(offset, PRESETS.rampStraight, [4, 3, 1], 270), PRESETS.rampStraight, [5, 3, 2], 270);
+    expect(simulateAssembly(withLongerRoute).some((r) => r.outcome === 'collision')).toBe(false);
+  });
+
+  describe('on a single channel', () => {
+    const line = addPiece(addPiece(EMPTY_ASSEMBLY, PRESETS.rampStraight, [1, 3, 1], 0), PRESETS.stop, [1, 2, 0], 0);
+
+    it('releases one marble by default', () => {
+      expect(simulateAssembly(line)).toHaveLength(1);
+    });
+
+    it('releases a second marble after the chosen delay', () => {
+      const results = simulateAssembly(line, { marbleCount: 2, followDelay: 1 });
+      expect(results).toHaveLength(2);
+      expect(results[1].samples[0].time).toBe(1);
+      expect(results[1].time).toBeCloseTo(results[0].time + 1, 6);
+    });
+
+    it('leaves separated marbles alone', () => {
+      expect(simulateAssembly(line, { marbleCount: 2, followDelay: 1 }).map((r) => r.outcome)).toEqual(['finished', 'finished']);
+    });
+
+    it('marks marbles released too close together', () => {
+      const results = simulateAssembly(line, { marbleCount: 2, followDelay: 0.01 });
+      expect(results.map((r) => r.outcome)).toEqual(['collision', 'collision']);
+    });
+  });
+
+  it('does not add a follower when there are already several starts', () => {
+    const two = addPiece(addPiece(EMPTY_ASSEMBLY, PRESETS.rampStraight, [1, 3, 0], 0), PRESETS.rampStraight, [5, 3, 0], 0);
+    expect(simulateAssembly(two, { marbleCount: 2 })).toHaveLength(2);
   });
 });
 

@@ -15,6 +15,11 @@ export const LANGS: Lang[] = ['eu', 'es', 'en'];
 const STRINGS = {
   eu: {
     hint: 'Aukeratu pieza bat edo egin klik bi portutan 3D bistan, kanal bat sortzeko.',
+    outcomeCollision: 'Topaketa',
+    simMarbles: 'Kanikak',
+    simCount: 'Hasiera-puntu bakarrean',
+    simDelay: 'Atzerapena (s)',
+    simMarblesHint: 'Hasiera-puntu bat baino gehiago badaude, kanika bat dago bakoitzean. Topaketa baten ondorengoa ez da simulatzen.',
     tabSimulation: 'Simulazioa',
     simHint: 'Muntaia hiru aldiz probatzen da, errodadura-erresistentzia ezberdinekin.',
     simResult: 'Emaitza',
@@ -178,6 +183,11 @@ const STRINGS = {
   },
   es: {
     hint: 'Elige una pieza o haz clic en dos puertos en la vista 3D para crear un canal.',
+    outcomeCollision: 'Encuentro',
+    simMarbles: 'Canicas',
+    simCount: 'En un único punto de inicio',
+    simDelay: 'Retraso (s)',
+    simMarblesHint: 'Si hay varios puntos de inicio, cada uno lleva una canica. Lo que ocurre tras un encuentro no se simula.',
     tabSimulation: 'Simulación',
     simHint: 'El montaje se prueba tres veces, con distinta resistencia a la rodadura.',
     simResult: 'Resultado',
@@ -341,6 +351,11 @@ const STRINGS = {
   },
   en: {
     hint: 'Pick a piece, or click two ports in the 3D view to create a channel.',
+    outcomeCollision: 'Encounter',
+    simMarbles: 'Marbles',
+    simCount: 'On a single starting point',
+    simDelay: 'Delay (s)',
+    simMarblesHint: 'With several starting points, each has one marble. What happens after an encounter is not simulated.',
     tabSimulation: 'Simulation',
     simHint: 'The assembly is tried three times, with different rolling resistance.',
     simResult: 'Result',
