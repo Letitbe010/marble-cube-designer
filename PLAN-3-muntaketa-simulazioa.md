@@ -94,6 +94,7 @@ Balio guztiak **suposizioak** dira, inprimatutako piezekin neurtu arte.
 | Junturan gordetzen den abiadura | % 95 | Pieza bat eta hainbat piezaren arteko distantziak alderatu |
 | Jauzian gordetzen den abiadura | % 70 | Jauzia duen eta ez duen pista alderatu |
 | Kurbako angelu-muga `φ` | 60° | Abiadura handituz, kanika noiz irteten den ikusi |
+| Hasierako blokearen bultzada `releaseSpeed` | 200 mm/s | Eserlekutik irteteko behar den bultzada txikiena probatu |
 
 Adibidez, `R = 25 mm` eta `φ = 60°` izanik, abiadura-muga 0,65 m/s ingurukoa da. Hori kalkulu teorikoan 30 mm inguruko jaitsiera baten pareko abiadura da: kurba ireki bat jaitsiera handi baten ondoren jartzea arriskutsua izan daiteke.
 

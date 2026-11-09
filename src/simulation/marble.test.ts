@@ -16,6 +16,24 @@ const LOSSLESS = { crr: 0, jointRetention: 1, jumpRetention: 1 };
 const descent = build([PRESETS.rampStraight, [1, 5, 2]], [PRESETS.rampStraight, [1, 4, 1]]);
 const theoretical = Math.sqrt(2 * (5 / 7) * 9810 * 50);
 
+describe('start block', () => {
+  const track = build([PRESETS.start, [1, 3, 1]], [PRESETS.stop, [1, 2, 0]]);
+
+  it('is where the marble is released', () => {
+    expect(findStarts(buildRunGraph(track)).map((run) => run.piece.id)).toEqual(['p1']);
+  });
+
+  it('sends a nudged marble down to the next piece', () => {
+    const [result] = simulateAssembly(track);
+    expect(result.outcome).toBe('finished');
+    expect(result.pieceIds).toEqual(['p1', 'p2']);
+  });
+
+  it('keeps the marble on its seat without a nudge', () => {
+    expect(simulateAssembly(track, { releaseSpeed: 0 })[0].outcome).toBe('stopped');
+  });
+});
+
 describe('single marble', () => {
   it('reaches the theoretical speed after a 50 mm descent', () => {
     expect(theoretical).toBeCloseTo(837, 0);

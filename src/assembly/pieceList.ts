@@ -1,4 +1,4 @@
-import type { Face, PieceSpec, Port } from '../geometry/ports';
+import { isSpiral, type Face, type PieceSpec, type Port } from '../geometry/ports';
 import { isVertical, parseSide } from '../geometry/ports';
 import { pieceId, specKey } from '../geometry/print';
 import type { Assembly } from './model';
@@ -39,7 +39,7 @@ function halfTurn(spec: PieceSpec): PieceSpec {
 
 function orientations(spec: PieceSpec): PieceSpec[] {
   // A spiral's entry is fixed to its plate, so turning its description would not describe the same solid.
-  if (spec.cavities?.some((c) => c.type === 'spiral')) return [spec];
+  if (spec.cavities?.some((c) => isSpiral(c.type))) return [spec];
   const [width, length] = spec.body.size;
   if (width !== length) return [spec, halfTurn(spec)];
   const turned = [spec];

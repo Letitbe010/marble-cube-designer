@@ -1,6 +1,6 @@
 import type { Manifold, ManifoldToplevel } from 'manifold-3d';
 import { boreRadius, CONFIG } from './config';
-import { bodyHeight, type Body, type Cavity, type Vec3 } from './ports';
+import { bodyHeight, isSpiral, type Body, type Cavity, type Vec3 } from './ports';
 
 const SEGMENTS = 64;
 const SPIRAL_START_RADIUS = 25;
@@ -19,7 +19,7 @@ const cellCentre = ({ cell }: Cavity): [number, number] => [(cell[0] + 0.5) * CO
 export type Sweep = (path: Vec3[], open: boolean) => Manifold[];
 
 /** Enters from the north face, along a cell centre, and winds inward to a hole at the middle. */
-export function spiralPath(body: Body): Vec3[] {
+export function spiralPath(body: Body, mirrored = false): Vec3[] {
   const top = bodyHeight(body);
   const centre = (body.size[0] * CONFIG.cubeSize) / 2;
   const entryX = centre + SPIRAL_START_RADIUS;
@@ -34,7 +34,7 @@ export function spiralPath(body: Body): Vec3[] {
     const radius = SPIRAL_START_RADIUS * (1 - t);
     points.push([centre + radius * Math.cos(angle), centre - radius * Math.sin(angle), top - SPIRAL_DROP * t]);
   }
-  return points;
+  return mirrored ? points.map(([x, y, z]) => [2 * centre - x, y, z]) : points;
 }
 
 /** Solids to remove from a piece for one cavity. The caller owns them. */
@@ -48,9 +48,9 @@ export function buildCavityCutters(wasm: ManifoldToplevel, cavity: Cavity, body:
     return placed;
   };
 
-  if (cavity.type === 'spiral') {
+  if (isSpiral(cavity.type)) {
     const centre = (body.size[0] * CONFIG.cubeSize) / 2;
-    return [...sweep(spiralPath(body), true), place(Manifold.cylinder(top + 2, r, r, SEGMENTS), centre, centre, -1)];
+    return [...sweep(spiralPath(body, cavity.type === 'spiralMirror'), true), place(Manifold.cylinder(top + 2, r, r, SEGMENTS), centre, centre, -1)];
   }
 
   const [x, y] = cellCentre(cavity);
@@ -82,7 +82,7 @@ export function cavityFits(cavity: Cavity, body: Body): boolean {
   if (body.shape !== 'box') return false;
   const [width, length] = body.size;
   const top = bodyHeight(body);
-  if (cavity.type === 'spiral') return width === 2 && length === 2;
+  if (isSpiral(cavity.type)) return width === 2 && length === 2;
 
   const [i, j] = cavity.cell;
   if (i < 0 || j < 0 || i >= width || j >= length) return false;

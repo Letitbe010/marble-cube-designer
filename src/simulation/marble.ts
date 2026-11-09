@@ -21,6 +21,8 @@ export interface SimParams {
   timeLimit: number;
   /** Speed given to the marble at the start, in mm/s. */
   startSpeed: number;
+  /** Speed of the nudge that takes a marble off the seat of a start block, in mm/s. */
+  releaseSpeed: number;
   /** With a single starting point, 2 releases a second marble behind the first. */
   marbleCount: 1 | 2;
   /** Seconds between the two marbles released at the same point. */
@@ -36,6 +38,7 @@ export const DEFAULT_PARAMS: SimParams = {
   gravity: 9810,
   timeLimit: 120,
   startSpeed: 0,
+  releaseSpeed: 200,
   marbleCount: 1,
   followDelay: 0.5,
 };
@@ -164,7 +167,7 @@ function endOfTrack(run: Run): Outcome {
 
 /** Rolls one marble from a starting path to wherever it ends up. */
 function roll(start: Run, graph: RunGraph, params: SimParams): MarbleResult {
-  const { crr, dt, gravity, timeLimit, startSpeed, jointRetention, jumpRetention, maxLean } = params;
+  const { crr, dt, gravity, timeLimit, startSpeed, releaseSpeed, jointRetention, jumpRetention, maxLean } = params;
   const leanLimit = Math.tan((maxLean * Math.PI) / 180);
   const samples: Sample[] = [];
   const pieceIds: string[] = [start.piece.id];
@@ -173,7 +176,8 @@ function roll(start: Run, graph: RunGraph, params: SimParams): MarbleResult {
   let radii = pathRadii(path);
   let index = 0;
   let along = 0;
-  let speed = startSpeed;
+  const seated = start.piece.spec.channels.some((c) => c.profile === 'release');
+  let speed = seated ? Math.max(startSpeed, releaseSpeed) : startSpeed;
   let maxSpeed = speed;
   let time = 0;
   let nextSample = 0;

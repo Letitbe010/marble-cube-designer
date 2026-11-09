@@ -18,7 +18,8 @@ export interface Body {
 }
 
 /** How a channel's height changes along its length. */
-export type Profile = 'flat' | 'linear' | 'wave';
+/** `release` leaves a seat at the top of the piece: level at first, then falling to the side port. */
+export type Profile = 'flat' | 'linear' | 'wave' | 'release';
 
 export interface Channel {
   from: Port;
@@ -32,8 +33,10 @@ export interface ChannelOptions {
   profile?: Profile;
 }
 
-export const CAVITY_TYPES = ['funnel', 'basin', 'chamber', 'spiral'] as const;
+export const CAVITY_TYPES = ['funnel', 'basin', 'chamber', 'spiral', 'spiralMirror'] as const;
 export type CavityType = (typeof CAVITY_TYPES)[number];
+
+export const isSpiral = (type: CavityType) => type === 'spiral' || type === 'spiralMirror';
 
 export interface Cavity {
   type: CavityType;
@@ -138,6 +141,9 @@ function defaultSection(from: Port, to: Port, body: Body): Section {
 
 /** Creates a channel; anything not specified follows from its ports and body. */
 export function channel(from: Port, to: Port, body: Body = UNIT_BODY, options: ChannelOptions = {}): Channel {
+  if (options.profile === 'release' && (isVertical(from) || isVertical(to))) {
+    return { from, to, section: options.section ?? defaultSection(from, to, body), profile: 'release' };
+  }
   const changesHeight =
     !isVertical(from) && !isVertical(to) && levelZ(parseSide(from).level, body) !== levelZ(parseSide(to).level, body);
   return {

@@ -1,8 +1,8 @@
 import Module, { type ManifoldToplevel } from 'manifold-3d';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { cavityFits, spiralPath } from './cavities';
+import { cavityFits, dishDepth, spiralPath } from './cavities';
 import { boreRadius, checkLevels, CONFIG } from './config';
-import { channelPath } from './paths';
+import { channelPath, SEAT_LENGTH } from './paths';
 import { buildPiece } from './piece';
 import { buildPrintParts, canSplit, pieceId } from './print';
 import { ALL_PORTS, boxPiece, channel, isVertical, parseSide, portPosition, portsFor, UNIT_BODY, type Body, type Cavity, type CavityType, type Port, type Shape } from './ports';
@@ -89,6 +89,53 @@ describe('profiles', () => {
     const line = heights(PRESETS.rampLong3);
     const gap = Math.max(...wave.map((z, i) => Math.abs(z - line[i])));
     expect(gap).toBeGreaterThan(0.5);
+  });
+});
+
+describe('mirrored pieces', () => {
+  const mirrorX = (path: number[][]) => path.map(([x, y, z]) => [CONFIG.cubeSize - x, y, z]);
+
+  it('mirrors the curved ramps', () => {
+    for (const [left, right] of [['rampCurve', 'rampCurveMirror'], ['rampCurveLow', 'rampCurveLowMirror']]) {
+      const a = mirrorX(channelPath(PRESETS[left].channels[0], PRESETS[left].body));
+      const b = channelPath(PRESETS[right].channels[0], PRESETS[right].body);
+      a.forEach((point, i) => point.forEach((value, c) => expect(value).toBeCloseTo(b[i][c], 6)));
+    }
+  });
+
+  it('mirrors the spiral', () => {
+    const body = PRESETS.spiral.body;
+    const span = body.size[0] * CONFIG.cubeSize;
+    const mirrored = spiralPath(body, true);
+    spiralPath(body).forEach(([x, y, z], i) => {
+      expect(mirrored[i][0]).toBeCloseTo(span - x, 6);
+      expect(mirrored[i][1]).toBeCloseTo(y, 6);
+      expect(mirrored[i][2]).toBeCloseTo(z, 6);
+    });
+  });
+});
+
+describe('start block', () => {
+  for (const name of ['start', 'startLow']) {
+    it(`${name} holds the ball on a seat, then falls to its side port`, () => {
+      const { body, channels } = PRESETS[name];
+      const path = channelPath(channels[0], body);
+      const top = body.size[2] * CONFIG.cubeSize;
+      expect(path.slice(-2).map((p) => p[2])).toEqual([top, top]);
+      expect(Math.hypot(path[path.length - 2][0] - 25, path[path.length - 2][1] - 25)).toBe(SEAT_LENGTH);
+      expect(path[0][2]).toBeLessThan(top);
+    });
+  }
+
+  it('sinks the seat below the floor of the way out', () => {
+    expect(dishDepth(PRESETS.start.cavities![0].size)).toBeGreaterThan(boreRadius());
+  });
+
+  it('only allows a release channel from the top to the middle level', () => {
+    const release = { section: 'slot', profile: 'release' } as const;
+    expect(validateDesign(boxPiece([channel('U.0', 'S.M.0', UNIT_BODY, release)]))).toEqual([]);
+    expect(validateDesign(boxPiece([channel('D.0', 'S.M.0', UNIT_BODY, release)]))[0].code).toBe('badSection');
+    expect(validateDesign(boxPiece([channel('U.0', 'S.M.0', UNIT_BODY, { section: 'slot' })]))[0].code).toBe('badSection');
   });
 });
 

@@ -1,6 +1,6 @@
 # Pieza-familien plana
 
-**Bertsioa:** 0.2 (onetsita; zuloen diametroa 17 mm)
+**Bertsioa:** 0.3 (2026-11-09: finkatze-interfazea, hasierako blokea, pieza simetrikoak eta bultzagailua gehituta)
 **Data:** 2026-11-09
 **Aurrekoa:** [PLAN.md](PLAN.md), 1. fasea.
 
@@ -55,6 +55,43 @@ Maila bakarreko lotura zorrotza ez da nahikoa, malda duten piezek altuera ezberd
 
 Piezak familia generiko eta parametroen bidez definituko dira, izen propioekin. Irudietako kodeak, marrazkiak eta katalogo komertziala ez dira errepositorioan sartuko, eta ez da pieza-zerrenda hori banan-banan kopiatuko: errepositorioa publikoa da. Familiek funtzio horiek guztiak estaltzen dituzte.
 
+### 2.5 Finkatze-interfazea (F pausoa)
+
+PLAko piezek pisu eta marruskadura txikia dute, eta kanikaren kolpeek desplaza ditzakete. Kalkulu teorikoan (kuboa 50 g, marruskadura 0,25, kanika 1 m/s-tan, talka frontala, hirurak suposizioak), goiko kubo soltea 2 mm inguru mugitzen da beirazko kanikarekin eta 13 mm inguru altzairuzkoarekin.
+
+Gridfinity sistemaren printzipioa hartzen da (forma alakatuak, bere kabuz zentratzen direnak), baina ez bere neurriak: gure sarea 50 mm-koa da, eta perimetro osoko ertzak goiko kanal irekiekin talka egingo luke. Erabakia:
+
+| Elementua | Geometria (hasierako balioak, probatzeko) |
+|---|---|
+| Kuboaren goialdea | Lau tetoi izkinetan: oina 8 × 8 mm, altuera 3 mm, 45°-ko alakak eta 1-1,5 mm-ko zati zuzena |
+| Kuboaren azpialdea | Tetoiei dagozkien lau poltsa, 0,2 mm-ko jokoarekin alde bakoitzean eta ahoan alaka txikiarekin |
+| Oinarri-plaka | Kuboaren goialdearen interfaze bera gelaxka bakoitzean |
+
+Geometria bakarrak balio du azpiko baserako eta zutabean pilatzeko, eta 90°-ko biraketa guztiak onartzen ditu. Zati zuzenak kuboa arrapalan gora igotzea eragozten du.
+
+Mugak: goiko aurpegia ez da laua (Cuboro errealekin bateragarritasuna galtzen da; erabiltzaileak ez du horrelakorik); 3 mm-ko tetoiek ez dute altxatzea eragozten; plakaren tamaina ohantzeak mugatzen du, eta pista handietan plaka-zatiak lotu beharko dira. Inbutuek, espiralak eta kanal bikoitzek izkinak libre uzten dituztela egiaztatu behar da. Altzairuzko kanika erabiltzen denez, imanak ez dira hartzen sistema nagusitzat.
+
+### 2.6 Hasierako blokea
+
+Kanika geldi hartzen duen eta zirkuitua abiarazten duen pieza. Goiko aurpegiaren erdian ontzi txiki bat du, eta handik kanal ireki bat irteten da: 8 mm lauan, gero `M` mailako alboko portura jaisten da. Ontzia irteerako kanalaren hondoa baino 1 mm sakonagoa da, eta ertz horrek kanika geldirik mantentzen du bultzada txiki bat jaso arte. Altuera osokoa eta erdi-altuerakoa daude. Simulazioan bultzada hori 200 mm/s-koa dela suposatzen da (`releaseSpeed`).
+
+### 2.7 Pieza simetrikoak
+
+Biraketa batek ezin du norabide batera bakarrik biratzen duen pieza baten ispilu-irudia sortu. Maldadun kurbek eta espiralak bi bertsio dituzte (ezkerrera eta eskuinera). Maila bereko kurbek ez dute behar, biratuta edo alderantziz erabilita bi noranzkoak estaltzen dituztelako.
+
+### 2.8 Kanika-bultzagailua (10. pausoa, azkena)
+
+Helburua: kanika abiaraztea edo gora bidaltzea, Cuboro-ren KICK luzapenaren funtzioaren antzera. Saltzaileen arabera, KICK-ek mailu bat erabiltzen du kanika gora bidaltzeko, mailua altzairu herdoilgaitzezkoa da eta aurretik prestatu egin behar da ([Blue Otter Toys](https://www.blueottertoys.com/products/cuboro-extension-set-kick-marble-run), [The Wooden Wagon](https://thewoodenwagon.com/woodentoy/CCU213.html), kontsulta 2026-11-09). Barneko mekanismoa **ez dago egiaztatuta**, eta ez da haren diseinua kopiatuko: diseinu propioa izango da.
+
+Lehen proposamena: pisu baten pendulua, ardatzarekin (8. pausoko ardatz bera, joko 0,3 mm). Erabiltzaileak jasotzen du, eta askatzean kanika jotzen du. Abantailak: ez du malgukirik behar (PLAk fluentzia du karga iraunkorrean) eta energia errepikagarria da.
+
+| Kalkulu teorikoa (50 g-ko pisua, 50 mm-ko erorketa, talka elastiko ideala) | Altzairua (16,8 g) | Beira (5,4 g) |
+|---|---|---|
+| Kanikaren abiadura | 1,5 m/s inguru | 1,8 m/s inguru |
+| Gehienezko igoera, galerarik gabe | 110 mm inguru | 160 mm inguru |
+
+Benetako balioak txikiagoak izango dira (PLAk kolpea xurgatzen du, eta marruskadura dago). Horregatik, pisuaren kolpea jasotzeko gainazal metalikoa erabiliko da, eta balioa neurtu egingo da. **Bideragarritasuna:** kanika horizontalki abiaraztea bideragarria da; maila bat (50 mm) igotzea litekeena da; zirkuitu itxia (kanika hasierara itzultzea) ez da bermatzen. Finkatze-interfazea (2.5) aurrebaldintza da, kolpeak piezak mugitu baititzake.
+
 ## 3. Estaldura
 
 | Irudietan agertzen dena | Familia | Pausoa |
@@ -67,6 +104,8 @@ Piezak familia generiko eta parametroen bidez definituko dira, izen propioekin. 
 | Azpiko kanala, junturako tunela | Azpiko sekzioa | 3 |
 | Hasierako inbutua eta tunel kurbatua | Inbutua | 4 |
 | Bukaerako geldiunea | Geldiunea | 4 |
+| Hasierako blokea (eserlekua eta irteera) | Hasierako blokea | 4 (gehigarria) |
+| Maldadun kurben eta espiralaren ispilu-bertsioak | Simetrikoak | 4 (gehigarria) |
 | Gurutzea eta ontzi biribila | Ontzia | 4 |
 | Azpitik irekitako ganbera | Ganbera | 4 |
 | Espirala | Espirala | 4 |
@@ -91,7 +130,9 @@ Pauso bakoitza amaitzean aplikazioa funtzionamenduan egongo da eta GitHub-en arg
 | **6** | **Pistaren editorea** | Zelda anitzeko piezak, 25 mm-ko Z saretan | 3D sareta, bidearen egiaztapena, kubo-zerrenda automatikoa | **Pista txiki bat muntatu** |
 | **7** | **Kanal bikoitzak** | Erditik ±12,5 mm-ra dauden kaleak; Y bidegurutzea; tunel makurtuak | Portuei kalea gehitu; editorean bi kale | Bikoitz bat inprimatu |
 | **8** | **Arrapala askeak eta mugikorrak** | Euskarri-koskadun arrapala makurtua; balantzina ardatzarekin (joko 0,3 mm) | Muntaia anitzeko piezak | Mugimendua probatu |
-| **9** | **Kalibrazioa eta inprimatze-probak** | Kalibrazio-pieza eta aurreko pausoetako probak; parametroak doitu | Parametroen azken balioak | Pista bat fisikoki dabil |
+| **F** | **Finkatze-interfazea** (2.5) | Izkinetako tetoiak eta poltsak; oinarri-plaka | Aukera piezetan; plaka muntaian eta ZIPean; izkinen talka-egiaztapena | Hegal-testa; tetoi eta poltsen elkartzea testetan |
+| **9** | **Kalibrazioa eta inprimatze-probak** | Kalibrazio-pieza eta aurreko pausoetako probak; plaka txiki bat eta bi kubo, 0,1 / 0,2 / 0,3 mm-ko jokoekin; kolpe-proba altzairuzko kanikarekin; parametroak doitu | Parametroen azken balioak | Pista bat fisikoki dabil |
+| **10** | **Kanika-bultzagailua** (2.8) | Penduluzko bultzagailua; lehenik horizontala, gero igoera | Pieza mugikorra liburutegian; simulazioan abiadura-iturri gisa | Igoera neurtu altzairuz eta beiraz |
 
 Pistaren editorea (6) kanal bikoitzen aurretik doa, proiektuaren helburu nagusia delako eta bikoitzak gero portu-eredua zabalduz gehitzen direlako. Bikoitzek ez dute 1. pausoko eredua aldatzen behartuko, portuek hasieratik `lane` eremua izango dutelako (0 balioarekin).
 

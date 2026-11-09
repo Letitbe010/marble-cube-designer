@@ -59,6 +59,7 @@ const levelOf = (port: Port) => (isVertical(port) ? null : parseSide(port).level
 /** A slot needs a clear way up, and a closed tunnel needs a piece tall enough to hold it. */
 function sectionFits(c: Channel, body: Body): boolean {
   const levels = [levelOf(c.from), levelOf(c.to)];
+  if (c.section === 'slot' && c.profile === 'release') return levels.includes(null) && levels.includes('M') && [c.from, c.to].includes('U.0');
   if (c.section === 'slot') return !levels.includes(null) && !levels.includes('B');
   if (c.section === 'tunnel' && isLowBody(body)) return !levels.includes('M');
   return true;

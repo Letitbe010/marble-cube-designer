@@ -3,7 +3,7 @@ import type { ManifoldToplevel } from 'manifold-3d';
 import './style.css';
 import { buildPiece, type BuildResult } from './geometry/piece';
 import { CAVITY_SIZES, cavityFits } from './geometry/cavities';
-import { CAVITY_TYPES, channel, normalizeBody, portsFor, SHAPES, type Body, type Cavity, type CavityType, type Channel, type PieceSpec, type Port, type Shape } from './geometry/ports';
+import { CAVITY_TYPES, channel, isSpiral, normalizeBody, portsFor, SHAPES, type Body, type Cavity, type CavityType, type Channel, type PieceSpec, type Port, type Shape } from './geometry/ports';
 import { HEIGHTS, LENGTHS, parseSpec, WIDTHS } from './geometry/specIo';
 import { CALIBRATION, CALIBRATION_THICKNESS, LIBRARY, PRESETS } from './geometry/presets';
 import { toBinaryStl } from './geometry/stl';
@@ -23,6 +23,7 @@ const CAVITY_LABELS: Record<CavityType, StringKey> = {
   basin: 'cavityBasin',
   chamber: 'cavityChamber',
   spiral: 'cavitySpiral',
+  spiralMirror: 'cavitySpiralMirror',
 };
 
 type SectionChoice = 'auto' | 'slot' | 'tunnel';
@@ -272,7 +273,7 @@ function renderCavityEditor(spec: PieceSpec): string {
   if (spec.body.shape !== 'box') return '';
   const [width, length] = spec.body.size;
   const cavities = spec.cavities ?? [];
-  const spiral = state.cavityType === 'spiral';
+  const spiral = isSpiral(state.cavityType);
   const cells: string[] = [];
   for (let j = 0; j < length; j++) for (let i = 0; i < width; i++) cells.push(`${i},${j}`);
   const selectedCell = state.cavityCell.join(',');
@@ -291,7 +292,7 @@ function renderCavityEditor(spec: PieceSpec): string {
       <button class="btn add-feature" id="addCavity">${t('add')}</button>
     </div>
     ${cavities.length ? `<ul class="segments">
-      ${cavities.map((c, i) => `<li><span>${t(CAVITY_LABELS[c.type])}${c.type === 'spiral' ? '' : ` <small>Ø ${c.size * 2} mm</small>`}</span><button data-remove-cavity="${i}" title="${t('remove')}" aria-label="${t('remove')}">×</button></li>`).join('')}
+      ${cavities.map((c, i) => `<li><span>${t(CAVITY_LABELS[c.type])}${isSpiral(c.type) ? '' : ` <small>Ø ${c.size * 2} mm</small>`}</span><button data-remove-cavity="${i}" title="${t('remove')}" aria-label="${t('remove')}">×</button></li>`).join('')}
     </ul>` : ''}`;
 }
 

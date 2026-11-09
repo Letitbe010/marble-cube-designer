@@ -1,7 +1,7 @@
 import { spiralPath } from '../geometry/cavities';
 import { CONFIG } from '../geometry/config';
 import { channelPath } from '../geometry/paths';
-import { FACE_DIR, isVertical, parseSide, portPosition, verticalKind, type Channel, type Vec3 } from '../geometry/ports';
+import { FACE_DIR, isSpiral, isVertical, parseSide, portPosition, verticalKind, type Channel, type Vec3 } from '../geometry/ports';
 import { toWorld, type Assembly, type PlacedPiece } from './model';
 
 /** Largest height a ball may drop between two pieces (PLAN-2, section 2.3). */
@@ -96,8 +96,9 @@ function runsOf(piece: PlacedPiece): Run[] {
     return makeRun(piece, [a, b], initialFlow(c, a.position[2], b.position[2]), channelPath(c, body), open(c), !open(c));
   });
 
-  if (cavities.some((c) => c.type === 'spiral')) {
-    const path = spiralPath(body);
+  const spiral = cavities.find((c) => isSpiral(c.type));
+  if (spiral) {
+    const path = spiralPath(body, spiral.type === 'spiralMirror');
     const entry: Vec3 = [path[1][0], body.size[1] * CONFIG.cubeSize, path[0][2]];
     const centre = (body.size[0] * CONFIG.cubeSize) / 2;
     const exit: Vec3 = [centre, centre, 0];
