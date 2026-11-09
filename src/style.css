@@ -86,5 +86,6 @@ ul.segments button:hover { color: var(--error-text); }
 .notice.error { background: var(--error-bg); color: var(--error-text); }
 
 .stats { color: var(--muted); margin: 8px 0; }
+.toggle.lanes { margin: 0 0 8px; }
 .toggle { display: flex; align-items: center; gap: 6px; margin-top: 10px; color: var(--muted); }
 footer { margin-top: 22px; color: var(--muted); font-size: 12px; line-height: 1.4; }

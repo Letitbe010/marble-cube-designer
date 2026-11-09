@@ -1,4 +1,4 @@
-import { boxPiece, channel as c, type Body, type Cavity, type CavityType, type PieceSpec, type Shape } from './ports';
+import { boxPiece, channel as c, type Body, type Cavity, type CavityType, type PieceSpec, type Port, type Shape } from './ports';
 
 const cavity = (type: CavityType, size: number): Cavity => ({ type, size, cell: [0, 0] });
 
@@ -63,11 +63,29 @@ export const PRESETS: Record<string, PieceSpec> = {
   spiralMirror: boxPiece([], [2, 2, 0.5], [cavity('spiralMirror', 12)]),
 };
 
-export const LIBRARY: { category: 'catBlocks' | 'catStructures' | 'catChannels' | 'catLow' | 'catRamps' | 'catSpecial'; items: string[] }[] = [
+const pair = (from: 'N.T' | 'N.M', to: 'S.T' | 'S.M') =>
+  ([-1, 1] as const).map((lane) => c(`${from}.${lane}` as Port, `${to}.${lane}` as Port));
+
+Object.assign(PRESETS, {
+  doubleStraight: boxPiece(pair('N.T', 'S.T')),
+  doubleTunnel: boxPiece(pair('N.M', 'S.M')),
+  doubleRamp: boxPiece(pair('N.T', 'S.M')),
+  doubleCurve: boxPiece([c('N.T.-1', 'E.T.-1'), c('N.T.1', 'E.T.1')]),
+  doubleOverTunnel: boxPiece([...pair('N.T', 'S.T'), c('E.M.0', 'W.M.0')]),
+  doubleLow: boxPiece([c('N.T.-1', 'S.T.-1', LOW), c('N.T.1', 'S.T.1', LOW)], [1, 1, 0.5]),
+  yMerge: boxPiece([c('N.T.-1', 'S.T.0'), c('N.T.1', 'S.T.0')]),
+  yMergeRamp: boxPiece([c('N.T.-1', 'S.M.0'), c('N.T.1', 'S.M.0')]),
+  laneShift: boxPiece([c('N.T.-1', 'S.T.1')]),
+  tunnelShift: boxPiece([c('N.M.-1', 'S.M.1')]),
+  twinIntoHole: boxPiece([c('N.T.-1', 'D.0'), c('N.T.1', 'D.0')]),
+} satisfies Record<string, PieceSpec>);
+
+export const LIBRARY: { category: 'catBlocks' | 'catStructures' | 'catChannels' | 'catLow' | 'catRamps' | 'catSpecial' | 'catDouble'; items: string[] }[] = [
   { category: 'catBlocks', items: ['cube', 'halfBlock', 'longBlock2', 'longBlock3', 'plate'] },
   { category: 'catChannels', items: ['straightTop', 'curveTop', 'crossTop', 'drop', 'straightTunnel', 'curveTunnel', 'topToTunnel', 'underside', 'double'] },
   { category: 'catRamps', items: ['rampStraight', 'rampLow', 'rampCurve', 'rampCurveMirror', 'rampCurveLow', 'rampCurveLowMirror', 'rampLong2', 'rampLong3', 'waveLong3', 'tunnelRamp'] },
   { category: 'catSpecial', items: ['start', 'startLow', 'funnelTunnel', 'funnelDrop', 'stop', 'stopLow', 'basinCross', 'basinCrossLow', 'chamberCross', 'chamberDrop', 'spiral', 'spiralMirror'] },
+  { category: 'catDouble', items: ['doubleStraight', 'doubleTunnel', 'doubleRamp', 'doubleCurve', 'doubleOverTunnel', 'doubleLow', 'yMerge', 'yMergeRamp', 'laneShift', 'tunnelShift', 'twinIntoHole'] },
   { category: 'catLow', items: ['halfGroove', 'halfCurve', 'longGroove2', 'longGroove3', 'longTunnel2'] },
   { category: 'catStructures', items: ['cylinder', 'halfRound', 'arch', 'roof'] },
 ];

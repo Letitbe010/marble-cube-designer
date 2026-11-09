@@ -26,6 +26,8 @@ export const CONFIG = {
   sphereSegments: 32,
   /** Number of steps along curved paths. */
   curveSteps: 16,
+  /** Distance from the centre of a face to each of its two side lanes. */
+  laneOffset: 12.5,
   /** Solid material left beside and above an arch opening. */
   archWall: 8,
   /** Bevel on the outer edges of blocks and cylinders. */

@@ -1,10 +1,12 @@
 import { CONFIG, LEVEL_IDS, type LevelId, type Section } from './config';
 
 export type Face = 'N' | 'E' | 'S' | 'W';
-/** Lateral track position on a face; only the centre lane exists for now. */
-export type Lane = 0;
+/** Lateral track position on a face: the centre, or a side lane towards lower or higher coordinates. */
+export type Lane = -1 | 0 | 1;
+export const LANES: Lane[] = [-1, 0, 1];
 export type SidePort = `${Face}.${LevelId}.${Lane}`;
-export type VerticalPort = `${'U' | 'D'}.${Lane}`;
+/** Holes through the top and bottom only exist at the centre. */
+export type VerticalPort = `${'U' | 'D'}.0`;
 export type Port = SidePort | VerticalPort;
 export type Vec3 = [number, number, number];
 
@@ -56,7 +58,7 @@ export const UNIT_BODY: Body = { shape: 'box', size: [1, 1, 1] };
 
 export const FACES: Face[] = ['N', 'E', 'S', 'W'];
 export const ALL_PORTS: Port[] = [
-  ...FACES.flatMap((f) => LEVEL_IDS.map((l) => `${f}.${l}.0` as Port)),
+  ...FACES.flatMap((f) => LEVEL_IDS.flatMap((l) => LANES.map((lane) => `${f}.${l}.${lane}` as Port))),
   'U.0',
   'D.0',
 ];
@@ -68,6 +70,14 @@ export const FACE_DIR: Record<Face, [number, number]> = {
   W: [-1, 0],
 };
 
+/** Direction along a face in which its lanes are spread. */
+export const FACE_TANGENT: Record<Face, [number, number]> = {
+  N: [1, 0],
+  S: [1, 0],
+  E: [0, 1],
+  W: [0, 1],
+};
+
 export function isVertical(port: Port): port is VerticalPort {
   return port[0] === 'U' || port[0] === 'D';
 }
@@ -76,9 +86,9 @@ export function verticalKind(port: VerticalPort): 'U' | 'D' {
   return port[0] as 'U' | 'D';
 }
 
-export function parseSide(port: SidePort): { face: Face; level: LevelId } {
-  const [face, level] = port.split('.') as [Face, LevelId];
-  return { face, level };
+export function parseSide(port: SidePort): { face: Face; level: LevelId; lane: Lane } {
+  const [face, level, lane] = port.split('.') as [Face, LevelId, string];
+  return { face, level, lane: Number(lane) as Lane };
 }
 
 export const bodyHeight = (body: Body) => body.size[2] * CONFIG.cubeSize;
@@ -100,12 +110,13 @@ export function levelZ(level: LevelId, body: Body): number {
  * Ports a body offers. Ports stay on grid-cell centres so pieces can connect, which
  * rules out faces wider than one cell; only boxes carry channels so far.
  */
-export function portsFor(body: Body): Port[] {
+export function portsFor(body: Body, lanes = true): Port[] {
   if (body.shape !== 'box') return [];
   const [width, length] = body.size;
   return ALL_PORTS.filter((port) => {
     if (isVertical(port)) return width === 1 && length === 1;
-    const { face } = parseSide(port);
+    const { face, lane } = parseSide(port);
+    if (!lanes && lane !== 0) return false;
     return (face === 'N' || face === 'S' ? width : length) === 1;
   });
 }
@@ -115,9 +126,11 @@ export function portPosition(port: Port, body: Body): Vec3 {
   const hx = (body.size[0] * CONFIG.cubeSize) / 2;
   const hy = (body.size[1] * CONFIG.cubeSize) / 2;
   if (isVertical(port)) return [hx, hy, verticalKind(port) === 'U' ? bodyHeight(body) : 0];
-  const { face, level } = parseSide(port);
+  const { face, level, lane } = parseSide(port);
   const [dx, dy] = FACE_DIR[face];
-  return [hx + dx * hx, hy + dy * hy, levelZ(level, body)];
+  const [tx, ty] = FACE_TANGENT[face];
+  const offset = lane * CONFIG.laneOffset;
+  return [hx + dx * hx + tx * offset, hy + dy * hy + ty * offset, levelZ(level, body)];
 }
 
 export function channelKey(c: Pick<Channel, 'from' | 'to'>): string {

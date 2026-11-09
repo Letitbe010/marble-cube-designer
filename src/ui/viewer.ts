@@ -107,18 +107,21 @@ export class Viewer {
   }
 
   /** Shows the ports of a body and frames it in the view. */
-  setBody(body: Body) {
+  setBody(body: Body, lanes = false) {
     for (const marker of this.markers.values()) {
       (marker.material as THREE.Material).dispose();
       this.scene.remove(marker);
     }
     this.markers.clear();
 
-    for (const port of portsFor(body)) {
+    for (const port of portsFor(body, lanes)) {
       const marker = new THREE.Mesh(this.markerGeometry, new THREE.MeshBasicMaterial({ color: portColor(port), depthTest: false }));
       marker.position.set(...portPosition(port, body));
       marker.renderOrder = 2;
       marker.userData.port = port;
+      // Side lanes sit close together, so their markers are smaller.
+      marker.userData.scale = !isVertical(port) && parseSide(port).lane !== 0 ? 0.6 : 1;
+      marker.scale.setScalar(marker.userData.scale);
       this.markers.set(port, marker);
       this.scene.add(marker);
     }
@@ -144,7 +147,7 @@ export class Viewer {
   setSelected(selected: Port | null) {
     for (const [port, marker] of this.markers) {
       (marker.material as THREE.MeshBasicMaterial).color.setHex(port === selected ? COLORS.selected : portColor(port));
-      marker.scale.setScalar(port === selected ? 1.5 : 1);
+      marker.scale.setScalar((port === selected ? 1.5 : 1) * marker.userData.scale);
     }
   }
 

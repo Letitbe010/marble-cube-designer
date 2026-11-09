@@ -3,7 +3,7 @@ import type { ManifoldToplevel } from 'manifold-3d';
 import './style.css';
 import { buildPiece, type BuildResult } from './geometry/piece';
 import { CAVITY_SIZES, cavityFits } from './geometry/cavities';
-import { CAVITY_TYPES, channel, isSpiral, normalizeBody, portsFor, SHAPES, type Body, type Cavity, type CavityType, type Channel, type PieceSpec, type Port, type Shape } from './geometry/ports';
+import { CAVITY_TYPES, channel, isSpiral, isVertical, normalizeBody, parseSide, portsFor, SHAPES, type Body, type Cavity, type CavityType, type Channel, type PieceSpec, type Port, type Shape } from './geometry/ports';
 import { HEIGHTS, LENGTHS, parseSpec, WIDTHS } from './geometry/specIo';
 import { CALIBRATION, CALIBRATION_THICKNESS, LIBRARY, PRESETS } from './geometry/presets';
 import { toBinaryStl } from './geometry/stl';
@@ -70,6 +70,7 @@ const state = {
   split: false,
   engrave: true,
   locators: saved.locators,
+  lanes: saved.spec.channels.some((c) => usesSideLane(c)),
   importFailed: false,
   seeThrough: false,
   rejected: null as IssueCode | null,
@@ -108,19 +109,23 @@ function rebuild() {
 
 /** Keeps the port selectors on ports the current body actually has. */
 function syncPortSelection() {
-  const available = portsFor(state.spec.body);
+  const available = portsFor(state.spec.body, state.lanes);
   if (!available.length) return;
   if (!available.includes(state.from)) state.from = available[0];
   if (!available.includes(state.to)) state.to = available[available.length - 1];
 }
 
+const usesSideLane = ({ from, to }: Channel) => [from, to].some((p) => !isVertical(p) && parseSide(p).lane !== 0);
+
 function setSpec(spec: PieceSpec) {
   const bodyChanged = JSON.stringify(spec.body) !== JSON.stringify(state.spec.body);
+  const lanesNeeded = !state.lanes && spec.channels.some((c) => usesSideLane(c));
   state.spec = spec;
   state.rejected = null;
-  if (bodyChanged) {
+  if (lanesNeeded) state.lanes = true;
+  if (bodyChanged || lanesNeeded) {
     state.picked = null;
-    viewer?.setBody(spec.body);
+    viewer?.setBody(spec.body, state.lanes);
     syncPortSelection();
   }
   persist();
@@ -302,6 +307,7 @@ function renderChannelEditor(spec: PieceSpec, ports: Port[], notices: string): s
   if (ports.length === 0) return `<p class="hint">${t('noPorts')}</p>${notices}`;
   return `
     <h2>${t('custom')}</h2>
+    <label class="toggle lanes"><input type="checkbox" id="lanes"${state.lanes ? ' checked' : ''} /> ${t('showLanes')}</label>
     <div class="adder">
       <select id="from" aria-label="from">${portOptions(state.from, ports)}</select>
       <select id="to" aria-label="to">${portOptions(state.to, ports)}</select>
@@ -360,7 +366,7 @@ function render() {
     return;
   }
   const { spec, result } = state;
-  const ports = portsFor(spec.body);
+  const ports = portsFor(spec.body, state.lanes);
   const issues = validateDesign(spec);
   const broken = result !== null && result.pieces !== 1;
   const canExport = result !== null && !broken;
@@ -451,6 +457,14 @@ panel.addEventListener('click', (event) => {
 
 panel.addEventListener('change', (event) => {
   const target = event.target as HTMLInputElement | HTMLSelectElement;
+  if (target.id === 'lanes') {
+    state.lanes = (target as HTMLInputElement).checked;
+    state.picked = null;
+    viewer?.setBody(state.spec.body, state.lanes);
+    syncPortSelection();
+    render();
+    return;
+  }
   if (target.id === 'locators') {
     state.locators = (target as HTMLInputElement).checked;
     persist();
@@ -503,7 +517,7 @@ window.addEventListener('keydown', (event) => {
 syncPortSelection();
 render();
 viewer = new Viewer(document.querySelector<HTMLElement>('#viewport')!, onPortClick);
-viewer.setBody(state.spec.body);
+viewer.setBody(state.spec.body, state.lanes);
 loadManifold()
   .then((instance) => {
     wasm = instance;

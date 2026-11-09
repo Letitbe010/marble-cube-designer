@@ -2,6 +2,7 @@ import { CONFIG } from './config';
 import {
   bodyHeight,
   FACE_DIR,
+  FACE_TANGENT,
   isVertical,
   levelZ,
   parseSide,
@@ -27,6 +28,9 @@ function heightAt(profile: Profile, from: number, to: number, t: number, cells: 
   return from + (to - from) * progress;
 }
 
+/** Eases a change of lane so that the channel leaves and meets each face straight on. */
+const easeLane = (t: number) => (1 - Math.cos(Math.PI * t)) / 2;
+
 function sidePath(a: SidePort, b: SidePort, body: Body, profile: Profile): Vec3[] {
   const pa = portPosition(a, body);
   const pb = portPosition(b, body);
@@ -38,12 +42,14 @@ function sidePath(a: SidePort, b: SidePort, body: Body, profile: Profile): Vec3[
   if (da[0] === -db[0] && da[1] === -db[1]) {
     // Opposite faces: straight run, ramping between levels if needed.
     const cells = Math.max(1, Math.round(Math.hypot(pb[0] - pa[0], pb[1] - pa[1]) / CONFIG.cubeSize));
-    const n = profile === 'flat' ? 1 : steps * cells;
+    const changesLane = parseSide(a).lane !== parseSide(b).lane;
+    const n = profile === 'flat' && !changesLane ? 1 : steps * cells;
+    const lateralIsX = da[0] === 0;
     for (let i = 0; i <= n; i++) {
       const t = i / n;
       points.push([
-        pa[0] + (pb[0] - pa[0]) * t,
-        pa[1] + (pb[1] - pa[1]) * t,
+        pa[0] + (pb[0] - pa[0]) * (lateralIsX ? easeLane(t) : t),
+        pa[1] + (pb[1] - pa[1]) * (lateralIsX ? t : easeLane(t)),
         heightAt(profile, pa[2], pb[2], t, cells),
       ]);
     }
@@ -56,12 +62,16 @@ function sidePath(a: SidePort, b: SidePort, body: Body, profile: Profile): Vec3[
     let delta = Math.atan2(pb[1] - cy, pb[0] - cx) - a0;
     if (delta > Math.PI) delta -= 2 * Math.PI;
     if (delta < -Math.PI) delta += 2 * Math.PI;
+    // Side lanes sit nearer or further from the corner, so the radius can differ at each end.
+    const radiusA = Math.hypot(pa[0] - cx, pa[1] - cy);
+    const radiusB = Math.hypot(pb[0] - cx, pb[1] - cy);
     for (let i = 0; i <= steps; i++) {
       const t = i / steps;
       const angle = a0 + delta * t;
+      const radius = radiusA + (radiusB - radiusA) * easeLane(t);
       points.push([
-        cx + half * Math.cos(angle),
-        cy + half * Math.sin(angle),
+        cx + radius * Math.cos(angle),
+        cy + radius * Math.sin(angle),
         heightAt(profile, pa[2], pb[2], t, 1),
       ]);
     }
@@ -77,10 +87,13 @@ function sidePath(a: SidePort, b: SidePort, body: Body, profile: Profile): Vec3[
 /** Vertical ports only exist on one-cell footprints. */
 function verticalPath(side: SidePort, port: VerticalPort, section: Channel['section'], profile: Profile, body: Body): Vec3[] {
   const half = CONFIG.cubeSize / 2;
-  const { face, level } = parseSide(side);
+  const { face, level, lane } = parseSide(side);
   const [dx, dy] = FACE_DIR[face];
+  const [tx, ty] = FACE_TANGENT[face];
   const z = levelZ(level, body);
-  const at = (u: number, h: number): Vec3 => [half + dx * u, half + dy * u, h];
+  // A side lane closes in on the centre, where the only vertical hole is.
+  const shift = (u: number) => lane * CONFIG.laneOffset * Math.min(1, u / half);
+  const at = (u: number, h: number): Vec3 => [half + dx * u + tx * shift(u), half + dy * u + ty * shift(u), h];
 
   if (profile === 'release') return [at(half + OVERSHOOT, z), at(half, z), at(SEAT_LENGTH, bodyHeight(body)), at(0, bodyHeight(body))];
 

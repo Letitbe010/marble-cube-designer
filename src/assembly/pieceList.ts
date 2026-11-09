@@ -1,4 +1,4 @@
-import { isSpiral, type Face, type PieceSpec, type Port } from '../geometry/ports';
+import { isSpiral, type Face, type Lane, type PieceSpec, type Port } from '../geometry/ports';
 import { isVertical, parseSide } from '../geometry/ports';
 import { pieceId, specKey } from '../geometry/print';
 import type { Assembly } from './model';
@@ -13,12 +13,15 @@ const QUARTER_TURN: Record<Face, Face> = { E: 'N', N: 'W', W: 'S', S: 'E' };
 
 function turnPort(port: Port): Port {
   if (isVertical(port)) return port;
-  const { face, level } = parseSide(port);
-  return `${QUARTER_TURN[face]}.${level}.0`;
+  const { face, level, lane } = parseSide(port);
+  // Lanes follow the axes, so turning from east to north or west to south reverses their order.
+  const reversed = face === 'E' || face === 'W';
+  const turned = reversed ? -lane : lane;
+  return `${QUARTER_TURN[face]}.${level}.${(turned === 0 ? 0 : turned) as Lane}`;
 }
 
 /** The same piece, turned a quarter counter-clockwise. Only valid for square footprints. */
-function quarterTurn(spec: PieceSpec): PieceSpec {
+export function quarterTurn(spec: PieceSpec): PieceSpec {
   const width = spec.body.size[0];
   return {
     ...spec,

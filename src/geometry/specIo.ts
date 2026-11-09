@@ -7,7 +7,7 @@ export const LENGTHS = [1, 2, 3];
 export const HEIGHTS = [0.5, 1, 1.5, 2];
 
 /** Designs saved before lanes existed use ports like "N.T"; they now read "N.T.0". */
-const migratePort = (port: string) => (/\.\d$/.test(port) ? port : `${port}.0`) as Port;
+const migratePort = (port: string) => (/\.-?\d$/.test(port) ? port : `${port}.0`) as Port;
 
 function loadBody(raw: Partial<Body> | undefined): Body {
   const size = raw?.size;
