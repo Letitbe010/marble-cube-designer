@@ -1,12 +1,20 @@
 import { CONFIG } from './config';
-import { FACE_DIR, isVertical, parseSide, portPosition, type Port, type Segment, type Vec3 } from './ports';
+import {
+  FACE_DIR,
+  isVertical,
+  parseSide,
+  portPosition,
+  verticalKind,
+  type Channel,
+  type SidePort,
+  type Vec3,
+  type VerticalPort,
+} from './ports';
 
-/** How far paths continue past the cube surface, so cuts open cleanly. */
+/** How far paths continue past the piece surface, so cuts open cleanly. */
 const OVERSHOOT = 1;
 
 const smoothstep = (t: number) => t * t * (3 - 2 * t);
-
-type SidePort = Exclude<Port, 'U' | 'D'>;
 
 function sidePath(a: SidePort, b: SidePort): Vec3[] {
   const pa = portPosition(a);
@@ -54,20 +62,19 @@ function sidePath(a: SidePort, b: SidePort): Vec3[] {
   ];
 }
 
-function verticalPath(side: SidePort, vertical: 'U' | 'D'): Vec3[] {
+function verticalPath(side: SidePort, port: VerticalPort, section: Channel['section']): Vec3[] {
   const half = CONFIG.cubeSize / 2;
   const { face, level } = parseSide(side);
   const [dx, dy] = FACE_DIR[face];
   const z = CONFIG.levels[level].z;
   const at = (u: number, h: number): Vec3 => [half + dx * u, half + dy * u, h];
 
-  // A groove that reaches the top port simply ends over the centre of the cube.
-  if (vertical === 'U' && CONFIG.levels[level].open) {
-    return [at(half + OVERSHOOT, z), at(half, z), at(0, z)];
-  }
+  // A groove or underside channel simply ends over the centre of the piece.
+  if (section !== 'tunnel') return [at(half + OVERSHOOT, z), at(half, z), at(0, z)];
 
-  const direction = vertical === 'U' ? 1 : -1;
-  const end = vertical === 'U' ? CONFIG.cubeSize : 0;
+  const up = verticalKind(port) === 'U';
+  const direction = up ? 1 : -1;
+  const end = up ? CONFIG.cubeSize : 0;
   const radius = Math.min(half, Math.abs(end - z));
   const points: Vec3[] = [at(half + OVERSHOOT, z), at(half, z)];
   if (radius < half) points.push(at(radius, z));
@@ -79,8 +86,8 @@ function verticalPath(side: SidePort, vertical: 'U' | 'D'): Vec3[] {
   return points;
 }
 
-/** Centre line of the ball through a segment. */
-export function segmentPath({ from, to }: Segment): Vec3[] {
+/** Centre line of the ball through a channel. */
+export function channelPath({ from, to, section }: Channel): Vec3[] {
   if (isVertical(from) && isVertical(to)) {
     const half = CONFIG.cubeSize / 2;
     return [
@@ -88,7 +95,7 @@ export function segmentPath({ from, to }: Segment): Vec3[] {
       [half, half, -OVERSHOOT],
     ];
   }
-  if (isVertical(from)) return verticalPath(to as SidePort, from);
-  if (isVertical(to)) return verticalPath(from as SidePort, to);
+  if (isVertical(from)) return verticalPath(to as SidePort, from, section);
+  if (isVertical(to)) return verticalPath(from as SidePort, to, section);
   return sidePath(from, to);
 }

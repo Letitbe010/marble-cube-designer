@@ -15,7 +15,8 @@ const STRINGS = {
     straightTunnel: 'Tunel zuzena',
     curveTunnel: 'Tunel kurbatua',
     topToTunnel: 'Goitik tunelera',
-    double: 'Kanal bikoitza',
+    underside: 'Azpiko kanala',
+    double: 'Kanala + tunela',
     custom: 'Kanal pertsonalizatua',
     add: 'Gehitu',
     segments: 'Kanalak',
@@ -25,7 +26,7 @@ const STRINGS = {
     export: 'Esportatu',
     exportStl: 'Deskargatu STL',
     calibration: 'Kalibrazio-pieza (STL)',
-    calibrationHint: '15 mm-ko xerra bat, kanalarekin eta tunelarekin. Lehen inprimatu hau, bola eta doikuntza probatzeko.',
+    calibrationHint: '15 mm-ko xerra bat, hiru mailekin: goiko kanala, tunela eta azpiko kanala. Lehen inprimatu hau, 16 mm-ko bola eta doikuntza probatzeko.',
     xray: 'Gardena (tunelak ikusteko)',
     stats: 'Bolumena: {volume} cm³ · {tris} triangelu',
     samePort: 'Kanal batek ezin ditu portu bera bi aldiz lotu.',
@@ -47,7 +48,8 @@ const STRINGS = {
     straightTunnel: 'Túnel recto',
     curveTunnel: 'Túnel curvo',
     topToTunnel: 'De arriba a túnel',
-    double: 'Canal doble',
+    underside: 'Canal inferior',
+    double: 'Canal + túnel',
     custom: 'Canal personalizado',
     add: 'Añadir',
     segments: 'Canales',
@@ -57,7 +59,7 @@ const STRINGS = {
     export: 'Exportar',
     exportStl: 'Descargar STL',
     calibration: 'Pieza de calibración (STL)',
-    calibrationHint: 'Una rebanada de 15 mm con canal y túnel. Imprímela primero para probar la bola y el ajuste.',
+    calibrationHint: 'Una rebanada de 15 mm con los tres niveles: canal superior, túnel y canal inferior. Imprímela primero para probar la bola de 16 mm y el ajuste.',
     xray: 'Transparente (ver túneles)',
     stats: 'Volumen: {volume} cm³ · {tris} triángulos',
     samePort: 'Un canal no puede unir un puerto consigo mismo.',
@@ -79,7 +81,8 @@ const STRINGS = {
     straightTunnel: 'Straight tunnel',
     curveTunnel: 'Curved tunnel',
     topToTunnel: 'Top to tunnel',
-    double: 'Double channel',
+    underside: 'Underside groove',
+    double: 'Groove + tunnel',
     custom: 'Custom channel',
     add: 'Add',
     segments: 'Channels',
@@ -89,7 +92,7 @@ const STRINGS = {
     export: 'Export',
     exportStl: 'Download STL',
     calibration: 'Calibration piece (STL)',
-    calibrationHint: 'A 15 mm slice with a groove and a tunnel. Print this first to test the ball and the fit.',
+    calibrationHint: 'A 15 mm slice with all three levels: top groove, tunnel and underside groove. Print this first to test the 16 mm ball and the fit.',
     xray: 'See-through (show tunnels)',
     stats: 'Volume: {volume} cm³ · {tris} triangles',
     samePort: 'A channel cannot connect a port to itself.',
@@ -112,9 +115,9 @@ const FACE_NAMES: Record<Lang, Record<Face, string>> = {
 };
 
 const LEVEL_NAMES: Record<Lang, Record<LevelId, string>> = {
-  eu: { T: 'kanala', M: 'tunela' },
-  es: { T: 'canal', M: 'túnel' },
-  en: { T: 'groove', M: 'tunnel' },
+  eu: { T: 'goiko kanala', M: 'tunela', B: 'azpiko kanala' },
+  es: { T: 'canal superior', M: 'túnel', B: 'canal inferior' },
+  en: { T: 'top groove', M: 'tunnel', B: 'underside groove' },
 };
 
 const VERTICAL_NAMES: Record<Lang, Record<'U' | 'D', string>> = {
@@ -128,7 +131,7 @@ export function translate(lang: Lang, key: StringKey, values: Record<string, str
 }
 
 export function portName(lang: Lang, port: Port): string {
-  if (port === 'U' || port === 'D') return VERTICAL_NAMES[lang][port];
+  if (port[0] === 'U' || port[0] === 'D') return VERTICAL_NAMES[lang][port[0]];
   const [face, level] = port.split('.') as [Face, LevelId];
   return `${FACE_NAMES[lang][face]} · ${LEVEL_NAMES[lang][level]}`;
 }

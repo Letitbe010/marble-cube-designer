@@ -1,23 +1,24 @@
 /** All physical dimensions, in millimetres. Tune these after printing the calibration piece. */
 
+export type Section = 'groove' | 'tunnel' | 'underside';
+
 export interface Level {
-  /** Height of the ball centre above the bottom of the cube. */
+  /** Height of the ball centre above the bottom of the piece. */
   z: number;
-  /** Open groove (true) or closed tunnel (false). */
-  open: boolean;
+  section: Section;
 }
 
-export const LEVEL_IDS = ['T', 'M'] as const;
+export const LEVEL_IDS = ['T', 'M', 'B'] as const;
 export type LevelId = (typeof LEVEL_IDS)[number];
 
 export const CONFIG = {
+  /** Size of one grid unit. */
   cubeSize: 50,
-  /** Removed from the cube's X and Y width so printed cubes fit side by side. */
+  /** Removed from the piece's X and Y width so printed pieces fit side by side. */
   fitClearance: 0.2,
-  /** Assumed ball diameter: sources report 16 or 17 mm, so the larger value is used. */
-  ballDiameter: 17,
+  ballDiameter: 16,
   /** Extra diameter so the ball rolls freely on FDM surfaces. */
-  boreClearance: 1.5,
+  boreClearance: 1,
   /** Thinnest wall that prints reliably with a 0.4 mm nozzle. */
   minWall: 2.5,
   /** Sphere resolution of the cutting tool. */
@@ -25,8 +26,9 @@ export const CONFIG = {
   /** Number of steps along curved paths. */
   curveSteps: 16,
   levels: {
-    T: { z: 44, open: true },
-    M: { z: 19, open: false },
+    T: { z: 50, section: 'groove' },
+    M: { z: 25, section: 'tunnel' },
+    B: { z: 0, section: 'underside' },
   } as Record<LevelId, Level>,
 };
 
@@ -39,15 +41,16 @@ export const ROOF_PEAK_FACTOR = Math.SQRT2;
 export function checkLevels(): string[] {
   const r = boreRadius();
   const levels = LEVEL_IDS.map((id) => ({ id, ...CONFIG.levels[id] })).sort((a, b) => a.z - b.z);
-  const upperExtent = (level: Level) => level.z + (level.open ? r : r * ROOF_PEAK_FACTOR);
+  const upperExtent = (level: Level) => level.z + r * ROOF_PEAK_FACTOR;
   const problems: string[] = [];
 
-  if (levels[0].z - r < CONFIG.minWall) problems.push(`Level ${levels[0].id} leaves too thin a floor`);
+  const lowest = levels[0];
+  if (lowest.section === 'tunnel' && lowest.z - r < CONFIG.minWall) problems.push(`Level ${lowest.id} leaves too thin a floor`);
   for (let i = 1; i < levels.length; i++) {
     const wall = levels[i].z - r - upperExtent(levels[i - 1]);
     if (wall < CONFIG.minWall) problems.push(`Levels ${levels[i - 1].id} and ${levels[i].id} are too close`);
   }
   const top = levels[levels.length - 1];
-  if (!top.open && upperExtent(top) > CONFIG.cubeSize - CONFIG.minWall) problems.push(`Level ${top.id} leaves too thin a roof`);
+  if (top.section !== 'groove' && upperExtent(top) > CONFIG.cubeSize - CONFIG.minWall) problems.push(`Level ${top.id} leaves too thin a roof`);
   return problems;
 }

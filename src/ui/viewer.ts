@@ -1,14 +1,13 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CONFIG } from '../geometry/config';
-import type { BuildResult } from '../geometry/cube';
-import { ALL_PORTS, FACE_DIR, FACES, portPosition, type Port } from '../geometry/ports';
+import type { BuildResult } from '../geometry/piece';
+import { ALL_PORTS, FACE_DIR, FACES, isVertical, parseSide, portPosition, type Port } from '../geometry/ports';
 
-const COLORS = { T: 0x1f5fbf, M: 0xd9822b, vertical: 0x4b5563, selected: 0xd4262c };
+const COLORS = { T: 0x1f5fbf, M: 0xd9822b, B: 0x2f8f5b, vertical: 0x4b5563, selected: 0xd4262c };
 
 function portColor(port: Port): number {
-  if (port === 'U' || port === 'D') return COLORS.vertical;
-  return port.endsWith('.T') ? COLORS.T : COLORS.M;
+  return isVertical(port) ? COLORS.vertical : COLORS[parseSide(port).level];
 }
 
 function faceLabel(text: string): THREE.Sprite {

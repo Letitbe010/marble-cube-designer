@@ -1,6 +1,6 @@
 import { boreRadius, CONFIG } from './config';
-import { segmentPath } from './paths';
-import { isVertical, parseSide, segmentKey, type Segment, type Vec3 } from './ports';
+import { channelPath } from './paths';
+import { channelKey, isVertical, parseSide, type Channel, type Vec3 } from './ports';
 
 export type IssueCode = 'samePort' | 'sameFace' | 'duplicate' | 'thinWall';
 
@@ -42,28 +42,28 @@ function pathDistance(a: Vec3[], b: Vec3[]): number {
 const CROSSING_TOLERANCE = 1;
 
 /** Checks a design for impossible segments and walls too thin to print. */
-export function validateDesign(segments: Segment[]): Issue[] {
+export function validateDesign(channels: Channel[]): Issue[] {
   const issues: Issue[] = [];
   const seen = new Map<string, number>();
 
-  segments.forEach((s, i) => {
+  channels.forEach((s, i) => {
     if (s.from === s.to) issues.push({ code: 'samePort', segments: [i] });
     else if (!isVertical(s.from) && !isVertical(s.to) && parseSide(s.from).face === parseSide(s.to).face) {
       issues.push({ code: 'sameFace', segments: [i] });
     }
-    const key = segmentKey(s);
+    const key = channelKey(s);
     const previous = seen.get(key);
     if (previous !== undefined) issues.push({ code: 'duplicate', segments: [previous, i] });
     else seen.set(key, i);
   });
   if (issues.length) return issues;
 
-  const paths = segments.map(segmentPath);
+  const paths = channels.map(channelPath);
   const limit = 2 * boreRadius() + CONFIG.minWall;
-  for (let i = 0; i < segments.length; i++) {
-    for (let j = i + 1; j < segments.length; j++) {
-      const ports = new Set([segments[i].from, segments[i].to]);
-      if (ports.has(segments[j].from) || ports.has(segments[j].to)) continue;
+  for (let i = 0; i < channels.length; i++) {
+    for (let j = i + 1; j < channels.length; j++) {
+      const ports = new Set([channels[i].from, channels[i].to]);
+      if (ports.has(channels[j].from) || ports.has(channels[j].to)) continue;
       const distance = pathDistance(paths[i], paths[j]);
       // Paths that truly meet are an intended crossing; near misses leave a fragile sliver.
       if (distance >= CROSSING_TOLERANCE && distance < limit) issues.push({ code: 'thinWall', segments: [i, j] });

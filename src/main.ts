@@ -1,7 +1,7 @@
 import type { ManifoldToplevel } from 'manifold-3d';
 import './style.css';
-import { buildCube, type BuildResult } from './geometry/cube';
-import { ALL_PORTS, type Port, type Segment } from './geometry/ports';
+import { buildPiece, type BuildResult } from './geometry/piece';
+import { ALL_PORTS, boxPiece, channel, type Channel, type Port } from './geometry/ports';
 import { CALIBRATION, CALIBRATION_THICKNESS, PRESETS } from './geometry/presets';
 import { toBinaryStl } from './geometry/stl';
 import { validateDesign, type IssueCode } from './geometry/validate';
@@ -13,17 +13,24 @@ const STORAGE_KEY = 'marble-cube-designer';
 
 interface Saved {
   lang: Lang;
-  segments: Segment[];
+  channels: Channel[];
 }
 
+/** Designs saved before lanes existed use ports like "N.T"; they now read "N.T.0". */
+const migratePort = (port: string) => (/\.\d$/.test(port) ? port : `${port}.0`) as Port;
+
 function load(): Saved {
-  const fallback: Saved = { lang: 'eu', segments: [...PRESETS.curveTop] };
+  const fallback: Saved = { lang: 'eu', channels: [...PRESETS.curveTop.channels] };
   try {
     const data = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
     if (!data) return fallback;
-    const segments = (data.segments as Segment[]).filter((s) => ALL_PORTS.includes(s.from) && ALL_PORTS.includes(s.to));
+    const stored = (data.channels ?? data.segments) as { from: string; to: string }[];
+    const channels = stored
+      .map((s) => ({ from: migratePort(s.from), to: migratePort(s.to) }))
+      .filter((s) => ALL_PORTS.includes(s.from) && ALL_PORTS.includes(s.to))
+      .map((s) => channel(s.from, s.to));
     const lang = LANGS.includes(data.lang) ? (data.lang as Lang) : fallback.lang;
-    return { lang, segments };
+    return { lang, channels };
   } catch {
     return fallback;
   }
@@ -32,10 +39,10 @@ function load(): Saved {
 const saved = load();
 const state = {
   lang: saved.lang,
-  segments: saved.segments,
+  channels: saved.channels,
   picked: null as Port | null,
-  from: 'N.T' as Port,
-  to: 'S.T' as Port,
+  from: 'N.T.0' as Port,
+  to: 'S.T.0' as Port,
   seeThrough: false,
   rejected: null as IssueCode | null,
   buildFailed: false,
@@ -50,7 +57,7 @@ let viewer: Viewer | null = null;
 
 function persist() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ lang: state.lang, segments: state.segments }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ lang: state.lang, channels: state.channels }));
   } catch {
     // Storage can be unavailable (private mode); the design just won't be remembered.
   }
@@ -59,7 +66,7 @@ function persist() {
 function rebuild() {
   if (!wasm || !viewer) return;
   try {
-    state.result = buildCube(wasm, state.segments);
+    state.result = buildPiece(wasm, boxPiece(state.channels));
     state.buildFailed = false;
     viewer.setResult(state.result);
   } catch (error) {
@@ -69,23 +76,23 @@ function rebuild() {
   }
 }
 
-function setSegments(segments: Segment[]) {
-  state.segments = segments;
+function setChannels(channels: Channel[]) {
+  state.channels = channels;
   state.rejected = null;
   persist();
   rebuild();
   render();
 }
 
-function addSegment(segment: Segment) {
-  const candidate = [...state.segments, segment];
+function addChannel(added: Channel) {
+  const candidate = [...state.channels, added];
   const blocking = validateDesign(candidate).find((issue) => issue.code !== 'thinWall');
   if (blocking) {
     state.rejected = blocking.code;
     render();
     return;
   }
-  setSegments(candidate);
+  setChannels(candidate);
 }
 
 function onPortClick(port: Port) {
@@ -95,7 +102,7 @@ function onPortClick(port: Port) {
     const from = state.picked;
     state.picked = null;
     viewer?.setSelected(null);
-    addSegment({ from, to: port });
+    addChannel(channel(from, port));
     return;
   }
   viewer?.setSelected(state.picked);
@@ -112,14 +119,14 @@ function download(buffer: ArrayBuffer, name: string) {
 
 function exportCube() {
   if (!state.result) return;
-  const id = state.segments.map((s) => `${s.from}-${s.to}`.replace(/\./g, '')).join('_') || 'blank';
+  const id = state.channels.map((s) => `${s.from}-${s.to}`.replace(/\.0/g, '').replace(/\./g, '')).join('_') || 'blank';
   const name = `cube-${id}`;
   download(toBinaryStl(state.result.positions, state.result.triangles, name), `${name}.stl`);
 }
 
 function exportCalibration() {
   if (!wasm) return;
-  const { positions, triangles } = buildCube(wasm, CALIBRATION, { sliceThickness: CALIBRATION_THICKNESS });
+  const { positions, triangles } = buildPiece(wasm, CALIBRATION, { sliceThickness: CALIBRATION_THICKNESS });
   download(toBinaryStl(positions, triangles, 'calibration'), 'calibration-piece.stl');
 }
 
@@ -129,7 +136,7 @@ function portOptions(selected: Port): string {
 
 function render() {
   document.documentElement.lang = state.lang;
-  const issues = validateDesign(state.segments);
+  const issues = validateDesign(state.channels);
   const { result } = state;
   const broken = result !== null && result.pieces !== 1;
   const canExport = result !== null && !broken;
@@ -161,9 +168,9 @@ function render() {
     </div>
 
     <h2>${t('segments')}</h2>
-    ${state.segments.length === 0 ? `<p class="empty">${t('empty')}</p>` : `
+    ${state.channels.length === 0 ? `<p class="empty">${t('empty')}</p>` : `
       <ul class="segments">
-        ${state.segments.map((s, i) => `<li><span>${portName(state.lang, s.from)} → ${portName(state.lang, s.to)}</span><button data-remove="${i}" title="${t('remove')}" aria-label="${t('remove')}">×</button></li>`).join('')}
+        ${state.channels.map((s, i) => `<li><span>${portName(state.lang, s.from)} → ${portName(state.lang, s.to)}</span><button data-remove="${i}" title="${t('remove')}" aria-label="${t('remove')}">×</button></li>`).join('')}
       </ul>
       <button class="btn wide" id="clear">${t('clear')}</button>`}
     ${notices}
@@ -189,13 +196,13 @@ panel.addEventListener('click', (event) => {
     persist();
     render();
   } else if (preset) {
-    setSegments([...PRESETS[preset]]);
+    setChannels([...PRESETS[preset].channels]);
   } else if (remove !== undefined) {
-    setSegments(state.segments.filter((_, i) => i !== Number(remove)));
+    setChannels(state.channels.filter((_, i) => i !== Number(remove)));
   } else if (target.id === 'add') {
-    addSegment({ from: state.from, to: state.to });
+    addChannel(channel(state.from, state.to));
   } else if (target.id === 'clear') {
-    setSegments([]);
+    setChannels([]);
   } else if (target.id === 'export') {
     exportCube();
   } else if (target.id === 'calibration') {

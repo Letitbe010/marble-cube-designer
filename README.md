@@ -27,12 +27,15 @@ A cube is a list of **segments**, each joining two **ports**. Ports sit at the c
 
 | Port | Meaning |
 |---|---|
-| `N.T`, `E.T`, `S.T`, `W.T` | Top groove exit on that face |
-| `N.M`, `E.M`, `S.M`, `W.M` | Tunnel exit on that face |
-| `U` / `D` | Vertical hole through the top / bottom |
+| `N.T.0`, `E.T.0`, `S.T.0`, `W.T.0` | Top groove exit on that face (centre 50 mm up) |
+| `N.M.0`, `E.M.0`, `S.M.0`, `W.M.0` | Tunnel exit on that face (centre 25 mm up) |
+| `N.B.0`, `E.B.0`, `S.B.0`, `W.B.0` | Underside groove exit on that face (centre at the base) |
+| `U.0` / `D.0` | Vertical hole through the top / bottom |
+
+The last digit is the lane; only the centre lane exists for now. Bores are 17 mm, for 16 mm marbles.
 
 ## Before printing a full cube
 
-Use **Calibration piece** in the app. It exports a thin slice containing a groove and a tunnel. Print two standing as exported, without supports: check that the ball runs freely through both and that they sit side by side. Then adjust `ballDiameter`, `boreClearance` and `fitClearance` if needed.
+Use **Calibration piece** in the app. It exports a thin slice containing all three channel levels. Print two standing as exported, without supports: check that the ball runs freely through both and that they sit side by side. Then adjust `ballDiameter`, `boreClearance` and `fitClearance` if needed.
 
 See [PLAN.md](PLAN.md) for the roadmap.

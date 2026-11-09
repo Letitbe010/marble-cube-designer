@@ -1,19 +1,30 @@
-import { CONFIG, LEVEL_IDS, type LevelId } from './config';
+import { CONFIG, LEVEL_IDS, type LevelId, type Section } from './config';
 
 export type Face = 'N' | 'E' | 'S' | 'W';
-export type Port = `${Face}.${LevelId}` | 'U' | 'D';
+/** Lateral track position on a face; only the centre lane exists for now. */
+export type Lane = 0;
+export type SidePort = `${Face}.${LevelId}.${Lane}`;
+export type VerticalPort = `${'U' | 'D'}.${Lane}`;
+export type Port = SidePort | VerticalPort;
 export type Vec3 = [number, number, number];
 
-export interface Segment {
+export interface Channel {
   from: Port;
   to: Port;
+  section: Section;
+}
+
+export interface PieceSpec {
+  /** Size in grid units. */
+  body: { shape: 'box'; size: [number, number, number] };
+  channels: Channel[];
 }
 
 export const FACES: Face[] = ['N', 'E', 'S', 'W'];
 export const ALL_PORTS: Port[] = [
-  ...FACES.flatMap((f) => LEVEL_IDS.map((l) => `${f}.${l}` as Port)),
-  'U',
-  'D',
+  ...FACES.flatMap((f) => LEVEL_IDS.map((l) => `${f}.${l}.0` as Port)),
+  'U.0',
+  'D.0',
 ];
 
 export const FACE_DIR: Record<Face, [number, number]> = {
@@ -23,25 +34,48 @@ export const FACE_DIR: Record<Face, [number, number]> = {
   W: [-1, 0],
 };
 
-export function isVertical(port: Port): port is 'U' | 'D' {
-  return port === 'U' || port === 'D';
+export function isVertical(port: Port): port is VerticalPort {
+  return port[0] === 'U' || port[0] === 'D';
 }
 
-export function parseSide(port: Exclude<Port, 'U' | 'D'>): { face: Face; level: LevelId } {
+export function verticalKind(port: VerticalPort): 'U' | 'D' {
+  return port[0] as 'U' | 'D';
+}
+
+export function parseSide(port: SidePort): { face: Face; level: LevelId } {
   const [face, level] = port.split('.') as [Face, LevelId];
   return { face, level };
 }
 
-/** Position of a port on the surface of the cube. */
+/** Position of a port on the surface of a one-unit piece. */
 export function portPosition(port: Port): Vec3 {
   const half = CONFIG.cubeSize / 2;
-  if (port === 'U') return [half, half, CONFIG.cubeSize];
-  if (port === 'D') return [half, half, 0];
+  if (isVertical(port)) return [half, half, verticalKind(port) === 'U' ? CONFIG.cubeSize : 0];
   const { face, level } = parseSide(port);
   const [dx, dy] = FACE_DIR[face];
   return [half + dx * half, half + dy * half, CONFIG.levels[level].z];
 }
 
-export function segmentKey(s: Segment): string {
-  return [s.from, s.to].sort().join('|');
+export function channelKey(c: Pick<Channel, 'from' | 'to'>): string {
+  return [c.from, c.to].sort().join('|');
+}
+
+function defaultSection(from: Port, to: Port): Section {
+  const sides = [from, to].filter((p): p is SidePort => !isVertical(p));
+  const sections = sides.map((p) => CONFIG.levels[parseSide(p).level].section);
+  if (sections.length === 2) return sections[0] === sections[1] ? sections[0] : 'tunnel';
+  if (sections.length === 0) return 'tunnel';
+  const vertical = verticalKind([from, to].find(isVertical) as VerticalPort);
+  if (vertical === 'U' && sections[0] === 'groove') return 'groove';
+  if (vertical === 'D' && sections[0] === 'underside') return 'underside';
+  return 'tunnel';
+}
+
+/** Creates a channel with the section its ports imply. */
+export function channel(from: Port, to: Port): Channel {
+  return { from, to, section: defaultSection(from, to) };
+}
+
+export function boxPiece(channels: Channel[]): PieceSpec {
+  return { body: { shape: 'box', size: [1, 1, 1] }, channels };
 }

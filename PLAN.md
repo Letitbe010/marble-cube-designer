@@ -53,9 +53,9 @@ Erabilera pertsonala da. Errepositorioa publikoa izango da GitHub-en.
 |---|---|---|---|
 | Kuboaren aldea | 50 mm | Egiaztatuta (saltzaileak) | [Manufactum](https://manufactum.com/cuboro-building-set-standard-a211666), 2026-11 |
 | Bolaren diametroa | 16 mm edo 17 mm | **Iturriek ez datoz bat** | [Cuboro Australia](https://cuboroaustralia.squarespace.com/marbles/cuboro-marbles) (17 mm); [The Wooden Wagon](https://www.thewoodenwagon.com/woodentoy/CCU230.html) (16 mm), 2026-11 |
-| Kanalaren, tunelaren eta zuloaren diametroa | 18,5 mm | **Suposizioa**: 17 mm-ko bola + 1,5 mm-ko jokoa; 16 mm-ko bolak ere balio du | Proiektuaren erabakia |
-| Goiko kanalaren zentroaren altuera | 44 mm | **Suposizioa** | Proiektuaren erabakia |
-| Tunelaren zentroaren altuera | 19 mm | **Suposizioa** | Proiektuaren erabakia |
+| Erabilitako bola | 16 mm | Erabiltzailearen erabakia (2026-11-09) | — |
+| Kanalaren, tunelaren eta zuloaren diametroa | 17 mm | Erabiltzailearen erabakia: 16 mm-ko bola + 1 mm-ko jokoa | — |
+| Maila-altuerak (bolaren zentroa) | 50 / 25 / 0 mm | **Inferentzia**, ikus [PLAN-2-piezak.md](PLAN-2-piezak.md) | Irudiak, neurtu gabe |
 
 **Ondorioa:** erabiltzaileak ez du jatorrizko kuborik, eta beraz neurri horiek ezin dira erkatu. Neurri guztiak parametroak dira `src/geometry/config.ts` fitxategian. Bermatzen dena hau da: proiektu honekin inprimatutako kuboak elkarren artean bat datoz. Jatorrizko Cuboro kuboekiko doikuntza ez dago egiaztatuta. Altzairuzko bolak beirazkoen diametro berekoak izan beharko dira.
 
