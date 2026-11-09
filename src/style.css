@@ -47,6 +47,9 @@ button { cursor: pointer; }
 .params { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .params label { display: flex; flex-direction: column; gap: 3px; color: var(--muted); font-size: 12px; min-width: 0; }
 .params label.full { grid-column: 1 / -1; }
+.btn.spaced { margin-top: 10px; }
+.presets.files { margin-top: 6px; }
+.presets.files .btn { text-align: center; }
 .params .add-feature { align-self: end; text-align: center; }
 .params.two { grid-template-columns: 1fr 1fr; margin-top: 6px; }
 ul.segments small { color: var(--muted); }

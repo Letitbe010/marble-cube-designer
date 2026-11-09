@@ -52,8 +52,21 @@ function createSweep(wasm: ManifoldToplevel): Sweep {
   };
 }
 
-/** Builds the printable solid for a piece. */
-export function buildPiece(wasm: ManifoldToplevel, spec: PieceSpec, options: BuildOptions = {}): BuildResult {
+/** Copies a solid into plain arrays that outlive the geometry kernel's objects. */
+export function toResult(solid: Manifold): BuildResult {
+  const mesh = solid.getMesh();
+  const positions = new Float32Array(mesh.numVert * 3);
+  for (let i = 0; i < mesh.numVert; i++) {
+    for (let c = 0; c < 3; c++) positions[i * 3 + c] = mesh.vertProperties[i * mesh.numProp + c];
+  }
+  const parts = solid.decompose();
+  const pieces = parts.length;
+  parts.forEach((p) => p.delete());
+  return { positions, triangles: Uint32Array.from(mesh.triVerts), volume: solid.volume(), pieces };
+}
+
+/** Builds the solid for a piece. The caller owns the returned manifold. */
+export function buildSolid(wasm: ManifoldToplevel, spec: PieceSpec, options: BuildOptions = {}): Manifold {
   const { Manifold } = wasm;
   const { cubeSize } = CONFIG;
   const owned: Manifold[] = [];
@@ -75,17 +88,19 @@ export function buildPiece(wasm: ManifoldToplevel, spec: PieceSpec, options: Bui
       solid = keep(solid.intersect(slab));
     }
 
-    const mesh = solid.getMesh();
-    const positions = new Float32Array(mesh.numVert * 3);
-    for (let i = 0; i < mesh.numVert; i++) {
-      for (let c = 0; c < 3; c++) positions[i * 3 + c] = mesh.vertProperties[i * mesh.numProp + c];
-    }
-    const parts = solid.decompose();
-    const pieces = parts.length;
-    parts.forEach((p) => p.delete());
-
-    return { positions, triangles: Uint32Array.from(mesh.triVerts), volume: solid.volume(), pieces };
+    owned.splice(owned.indexOf(solid), 1);
+    return solid;
   } finally {
     owned.forEach((m) => m.delete());
+  }
+}
+
+/** Builds a piece and returns its mesh, as the viewer shows it. */
+export function buildPiece(wasm: ManifoldToplevel, spec: PieceSpec, options: BuildOptions = {}): BuildResult {
+  const solid = buildSolid(wasm, spec, options);
+  try {
+    return toResult(solid);
+  } finally {
+    solid.delete();
   }
 }

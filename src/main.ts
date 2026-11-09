@@ -1,3 +1,4 @@
+import JSZip from 'jszip';
 import type { ManifoldToplevel } from 'manifold-3d';
 import './style.css';
 import { buildPiece, type BuildResult } from './geometry/piece';
@@ -7,6 +8,7 @@ import { CALIBRATION, CALIBRATION_THICKNESS, LIBRARY, PRESETS } from './geometry
 import { toBinaryStl } from './geometry/stl';
 import { adaptChannels, validateDesign, type IssueCode } from './geometry/validate';
 import type { Section } from './geometry/config';
+import { buildPrintParts, canSplit, pieceId } from './geometry/print';
 import { loadManifold } from './geometry/wasm';
 import { LANGS, portName, translate, type Lang, type StringKey } from './ui/i18n';
 import { Viewer } from './ui/viewer';
@@ -55,20 +57,25 @@ function loadBody(raw: Partial<Body> | undefined): Body {
   return normalizeBody({ shape: raw.shape, size });
 }
 
+/** Rebuilds a piece from stored data, dropping whatever no longer fits. */
+function parseSpec(data: { spec?: Partial<PieceSpec>; channels?: unknown; segments?: unknown }): PieceSpec {
+  const body = loadBody(data.spec?.body);
+  const stored = (data.spec?.channels ?? data.channels ?? data.segments) as (Partial<Channel> & { from: string; to: string })[];
+  const channels = adaptChannels(
+    stored.map((s) => ({ ...s, from: migratePort(s.from), to: migratePort(s.to) }) as Channel),
+    body,
+  );
+  const cavities = ((data.spec?.cavities ?? []) as Cavity[]).filter((c) => CAVITY_TYPES.includes(c.type) && cavityFits(c, body));
+  return { body, channels, cavities };
+}
+
 function load(): Saved {
   const fallback: Saved = { lang: 'eu', spec: PRESETS.curveTop };
   try {
     const data = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
     if (!data) return fallback;
-    const body = loadBody(data.spec?.body);
-    const stored = (data.spec?.channels ?? data.channels ?? data.segments) as (Partial<Channel> & { from: string; to: string })[];
-    const channels = adaptChannels(
-      stored.map((s) => ({ ...s, from: migratePort(s.from), to: migratePort(s.to) }) as Channel),
-      body,
-    );
-    const cavities = ((data.spec?.cavities ?? []) as Cavity[]).filter((c) => CAVITY_TYPES.includes(c.type) && cavityFits(c, body));
     const lang = LANGS.includes(data.lang) ? (data.lang as Lang) : fallback.lang;
-    return { lang, spec: { body, channels, cavities } };
+    return { lang, spec: parseSpec(data) };
   } catch {
     return fallback;
   }
@@ -86,6 +93,9 @@ const state = {
   cavityType: 'funnel' as CavityType,
   cavitySize: 20,
   cavityCell: [0, 0] as [number, number],
+  split: false,
+  engrave: true,
+  importFailed: false,
   seeThrough: false,
   rejected: null as IssueCode | null,
   buildFailed: false,
@@ -196,8 +206,8 @@ function onPortClick(port: Port) {
   viewer?.setSelected(state.picked);
 }
 
-function download(buffer: ArrayBuffer, name: string) {
-  const url = URL.createObjectURL(new Blob([buffer], { type: 'model/stl' }));
+function download(content: ArrayBuffer | string, name: string, type: string) {
+  const url = URL.createObjectURL(new Blob([content], { type }));
   const link = document.createElement('a');
   link.href = url;
   link.download = name;
@@ -205,18 +215,62 @@ function download(buffer: ArrayBuffer, name: string) {
   URL.revokeObjectURL(url);
 }
 
-function exportPiece() {
-  if (!state.result) return;
+const STL_TYPE = 'model/stl';
+const ZIP_TYPE = 'application/zip';
+
+function pieceFileName(): string {
   const { body, channels, cavities = [] } = state.spec;
   const id = channels.map((s) => `${s.from}-${s.to}`.replace(/\.0/g, '').replace(/\./g, '')).join('_');
-  const name = [`${body.shape}-${body.size.join('x')}`, id, ...cavities.map((c) => c.type)].filter(Boolean).join('-');
-  download(toBinaryStl(state.result.positions, state.result.triangles, name), `${name}.stl`);
+  return [`${body.shape}-${body.size.join('x')}`, id, ...cavities.map((c) => c.type)].filter(Boolean).join('-');
+}
+
+const stlOf = ({ positions, triangles }: BuildResult, name: string) => toBinaryStl(positions, triangles, name);
+
+async function exportPiece() {
+  if (!wasm) return;
+  const { id, parts } = buildPrintParts(wasm, state.spec, { split: state.split, engrave: state.engrave });
+  const name = `${id}-${pieceFileName()}`;
+  if (parts.length === 1) {
+    download(stlOf(parts[0].result, name), `${name}.stl`, STL_TYPE);
+    return;
+  }
+  const zip = new JSZip();
+  for (const { suffix, result } of parts) zip.file(`${name}-${suffix}.stl`, stlOf(result, name));
+  download(await zip.generateAsync({ type: 'arraybuffer' }), `${name}.zip`, ZIP_TYPE);
+}
+
+async function exportLibrary() {
+  if (!wasm) return;
+  const zip = new JSZip();
+  const manifest: string[] = ['id\tpiece\tvolume_cm3'];
+  for (const [key, spec] of Object.entries(PRESETS)) {
+    const { id, parts } = buildPrintParts(wasm, spec, { engrave: true });
+    zip.file(`${key}-${id}.stl`, stlOf(parts[0].result, id));
+    manifest.push(`${id}\t${key}\t${(parts[0].result.volume / 1000).toFixed(1)}`);
+  }
+  zip.file('parts.txt', manifest.join('\n'));
+  download(await zip.generateAsync({ type: 'arraybuffer' }), 'marble-cube-library.zip', ZIP_TYPE);
+}
+
+function saveDesign() {
+  download(JSON.stringify({ version: 1, spec: state.spec }, null, 2), `${pieceFileName()}.json`, 'application/json');
+}
+
+async function loadDesign(file: File) {
+  try {
+    const spec = parseSpec(JSON.parse(await file.text()));
+    state.importFailed = false;
+    setSpec(spec);
+  } catch {
+    state.importFailed = true;
+    render();
+  }
 }
 
 function exportCalibration() {
   if (!wasm) return;
   const { positions, triangles } = buildPiece(wasm, CALIBRATION, { sliceThickness: CALIBRATION_THICKNESS });
-  download(toBinaryStl(positions, triangles, 'calibration'), 'calibration-piece.stl');
+  download(toBinaryStl(positions, triangles, 'calibration'), 'calibration-piece.stl', STL_TYPE);
 }
 
 function portOptions(selected: Port, ports: Port[]): string {
@@ -310,6 +364,7 @@ function render() {
     ...issues.filter((i) => i.code === 'thinWall').slice(0, 1).map(() => `<div class="notice warn">${t('thinWall')}</div>`),
     broken && `<div class="notice error">${t('pieces')}</div>`,
     state.buildFailed && `<div class="notice error">${t('failed')}</div>`,
+    state.importFailed && `<div class="notice error">${t('badFile')}</div>`,
   ].filter(Boolean).join('');
 
   panel.innerHTML = `
@@ -332,7 +387,16 @@ function render() {
 
     <h2>${t('export')}</h2>
     ${result ? `<p class="stats">${t('stats', { volume: (result.volume / 1000).toFixed(1), tris: String(result.triangles.length / 3) })}</p>` : wasm ? '' : `<p class="stats">${t('loading')}</p>`}
-    <button class="btn primary" id="export"${canExport ? '' : ' disabled'}>${t('exportStl')}</button>
+    <p class="stats">ID: ${pieceId(spec)}</p>
+    ${canSplit(spec) ? `<label class="toggle"><input type="checkbox" id="split"${state.split ? ' checked' : ''} /> ${t('printSplit')}</label>` : ''}
+    <label class="toggle"><input type="checkbox" id="engrave"${state.engrave ? ' checked' : ''} /> ${t('printEngrave')}</label>
+    <button class="btn primary spaced" id="export"${canExport ? '' : ' disabled'}>${t('exportStl')}</button>
+    <button class="btn wide" id="library"${wasm ? '' : ' disabled'}>${t('exportLibrary')}</button>
+    <div class="presets files">
+      <button class="btn" id="save">${t('saveDesign')}</button>
+      <button class="btn" id="load">${t('loadDesign')}</button>
+    </div>
+    <input type="file" id="importFile" accept=".json,application/json" hidden />
     <button class="btn wide" id="calibration"${wasm ? '' : ' disabled'}>${t('calibration')}</button>
     <p class="hint">${t('calibrationHint')}</p>
 
@@ -362,7 +426,13 @@ panel.addEventListener('click', (event) => {
   } else if (target.id === 'clear') {
     setChannels([]);
   } else if (target.id === 'export') {
-    exportPiece();
+    void exportPiece();
+  } else if (target.id === 'library') {
+    void exportLibrary();
+  } else if (target.id === 'save') {
+    saveDesign();
+  } else if (target.id === 'load') {
+    panel.querySelector<HTMLInputElement>('#importFile')?.click();
   } else if (target.id === 'calibration') {
     exportCalibration();
   }
@@ -380,7 +450,12 @@ panel.addEventListener('change', (event) => {
     render();
   } else if (target.id === 'cavitySize') state.cavitySize = Number(target.value);
   else if (target.id === 'cavityCell') state.cavityCell = target.value.split(',').map(Number) as [number, number];
-  else if (target.id === 'section') state.section = target.value as SectionChoice;
+  else if (target.id === 'split') state.split = (target as HTMLInputElement).checked;
+  else if (target.id === 'engrave') state.engrave = (target as HTMLInputElement).checked;
+  else if (target.id === 'importFile') {
+    const file = (target as HTMLInputElement).files?.[0];
+    if (file) void loadDesign(file);
+  } else if (target.id === 'section') state.section = target.value as SectionChoice;
   else if (target.id === 'profile') state.profile = target.value as ProfileChoice;
   else if (target.id === 'shape') setBody({ shape: target.value as Shape, size: [x, y, z] });
   else if (target.id === 'sizeX') setBody({ shape: body.shape, size: [Number(target.value), y, z] });

@@ -28,6 +28,15 @@ export const CONFIG = {
   curveSteps: 16,
   /** Solid material left beside and above an arch opening. */
   archWall: 8,
+  /** Bevel on the outer edges of blocks and cylinders. */
+  chamfer: 1,
+  /** Alignment pins for split pieces: a piece of 1.75 mm filament. */
+  pinDiameter: 1.75,
+  pinClearance: 0.35,
+  pinDepth: 6,
+  pinInset: 8,
+  /** Depth of the identifier engraved on the underside. */
+  idDepth: 0.6,
   levels: {
     T: { z: 50, section: 'groove' },
     M: { z: 25, section: 'tunnel' },

@@ -4,6 +4,7 @@ import { cavityFits, spiralPath } from './cavities';
 import { boreRadius, checkLevels, CONFIG } from './config';
 import { channelPath } from './paths';
 import { buildPiece } from './piece';
+import { buildPrintParts, canSplit, pieceId } from './print';
 import { ALL_PORTS, boxPiece, channel, isVertical, parseSide, portPosition, portsFor, UNIT_BODY, type Body, type Cavity, type CavityType, type Port, type Shape } from './ports';
 import { CALIBRATION, CALIBRATION_THICKNESS, PRESETS } from './presets';
 import { toBinaryStl } from './stl';
@@ -111,7 +112,8 @@ describe('validation', () => {
 describe('solid', () => {
   it('builds an uncut cube', () => {
     const result = buildPiece(wasm, boxPiece([]));
-    expect(result.volume).toBeCloseTo(fullVolume, 3);
+    expect(result.volume).toBeLessThan(fullVolume);
+    expect(result.volume).toBeGreaterThan(fullVolume * 0.99);
     expect(result.pieces).toBe(1);
   });
 
@@ -123,9 +125,8 @@ describe('solid', () => {
       expect(result.volume).toBeLessThan(buildPiece(wasm, { body: spec.body, channels: [] }).volume + (spec.channels.length ? 0 : 1));
     });
 
-    // Arches print on their side; automatic orientation arrives with the print output step.
-    it.skipIf(spec.body.shape === 'arch')(`preset ${name} has no overhang steeper than 45 degrees`, () => {
-      const { positions: p, triangles } = buildPiece(wasm, spec);
+    it(`preset ${name} prints with no overhang steeper than 45 degrees`, () => {
+      const { positions: p, triangles } = buildPrintParts(wasm, spec).parts[0].result;
       let worst = 0;
       for (let i = 0; i < triangles.length; i += 3) {
         const [a, b, c] = [triangles[i] * 3, triangles[i + 1] * 3, triangles[i + 2] * 3];
@@ -292,6 +293,73 @@ describe('cavities', () => {
       ...path.slice(0, -onePitch).map((p, i) => Math.hypot(p[0] - path[i + onePitch][0], p[1] - path[i + onePitch][1])),
     );
     expect(gap).toBeGreaterThanOrEqual(2 * boreRadius() + 2.5);
+  });
+});
+
+describe('print output', () => {
+  const zRange = (positions: Float32Array) => {
+    let min = Infinity;
+    let max = -Infinity;
+    for (let i = 2; i < positions.length; i += 3) {
+      min = Math.min(min, positions[i]);
+      max = Math.max(max, positions[i]);
+    }
+    return [min, max];
+  };
+
+  it('gives equal pieces the same identifier, whatever the channel order', () => {
+    const a = boxPiece([channel('N.T.0', 'S.T.0'), channel('E.M.0', 'W.M.0')]);
+    const b = boxPiece([channel('W.M.0', 'E.M.0'), channel('S.T.0', 'N.T.0')]);
+    expect(pieceId(a)).toBe(pieceId(b));
+  });
+
+  it('gives every library piece its own identifier', () => {
+    const ids = Object.values(PRESETS).map(pieceId);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('engraves the identifier on the underside of a block', () => {
+    const plain = buildPrintParts(wasm, PRESETS.cube).parts[0].result;
+    const engraved = buildPrintParts(wasm, PRESETS.cube, { engrave: true }).parts[0].result;
+    expect(engraved.volume).toBeLessThan(plain.volume);
+    expect(plain.volume - engraved.volume).toBeLessThan(50);
+    expect(engraved.pieces).toBe(1);
+  });
+
+  it('skips the engraving when no flat area is free', () => {
+    const output = buildPrintParts(wasm, PRESETS.arch, { engrave: true });
+    expect(output.parts[0].result.pieces).toBe(1);
+  });
+
+  it('lays an arch on its side, flat on the bed', () => {
+    const { result } = buildPrintParts(wasm, PRESETS.arch).parts[0];
+    const [min, max] = zRange(result.positions);
+    expect(min).toBeCloseTo(0, 4);
+    expect(max - min).toBeCloseTo(PRESETS.arch.body.size[1] * CONFIG.cubeSize - CONFIG.fitClearance, 2);
+  });
+
+  it('splits a tunnel piece into two parts on the bed', () => {
+    const { parts } = buildPrintParts(wasm, PRESETS.straightTunnel, { split: true });
+    expect(parts.map((p) => p.suffix)).toEqual(['bottom', 'top']);
+    expect(zRange(parts[0].result.positions)).toEqual([0, 25]);
+    const top = zRange(parts[1].result.positions);
+    expect(top[0]).toBeCloseTo(0, 4);
+    expect(top[1]).toBeCloseTo(25, 4);
+    parts.forEach((part) => expect(part.result.pieces).toBe(1));
+  });
+
+  it('drills alignment pins into both halves', () => {
+    const plain = buildPrintParts(wasm, PRESETS.straightTunnel).parts[0].result.volume;
+    const halves = buildPrintParts(wasm, PRESETS.straightTunnel, { split: true }).parts;
+    const removed = plain - halves[0].result.volume - halves[1].result.volume;
+    const radius = (CONFIG.pinDiameter + CONFIG.pinClearance) / 2;
+    expect(removed).toBeCloseTo(4 * Math.PI * radius * radius * CONFIG.pinDepth * 2, -1);
+  });
+
+  it('only splits pieces that have a tunnel', () => {
+    expect(canSplit(PRESETS.straightTop)).toBe(false);
+    expect(canSplit(PRESETS.straightTunnel)).toBe(true);
+    expect(buildPrintParts(wasm, PRESETS.straightTop, { split: true }).parts).toHaveLength(1);
   });
 });
 

@@ -7,6 +7,12 @@ export const LANGS: Lang[] = ['eu', 'es', 'en'];
 const STRINGS = {
   eu: {
     hint: 'Aukeratu pieza bat edo egin klik bi portutan 3D bistan, kanal bat sortzeko.',
+    printSplit: 'Bi zatitan inprimatu (1,75 mm-ko filamentua pin gisa)',
+    printEngrave: 'IDa azpian grabatu',
+    exportLibrary: 'Liburutegi osoa (ZIP)',
+    saveDesign: 'Gorde JSON',
+    loadDesign: 'Kargatu JSON',
+    badFile: 'Ezin izan da fitxategia irakurri.',
     catSpecial: 'Elementu bereziak',
     funnelTunnel: 'Inbutua + tunela',
     funnelDrop: 'Inbutua + jaitsiera',
@@ -106,6 +112,12 @@ const STRINGS = {
   },
   es: {
     hint: 'Elige una pieza o haz clic en dos puertos en la vista 3D para crear un canal.',
+    printSplit: 'Imprimir en dos partes (filamento de 1,75 mm como pasador)',
+    printEngrave: 'Grabar el ID por debajo',
+    exportLibrary: 'Biblioteca completa (ZIP)',
+    saveDesign: 'Guardar JSON',
+    loadDesign: 'Cargar JSON',
+    badFile: 'No se ha podido leer el archivo.',
     catSpecial: 'Elementos especiales',
     funnelTunnel: 'Embudo + túnel',
     funnelDrop: 'Embudo + bajada',
@@ -205,6 +217,12 @@ const STRINGS = {
   },
   en: {
     hint: 'Pick a piece, or click two ports in the 3D view to create a channel.',
+    printSplit: 'Print in two parts (1.75 mm filament as pins)',
+    printEngrave: 'Engrave the ID underneath',
+    exportLibrary: 'Whole library (ZIP)',
+    saveDesign: 'Save JSON',
+    loadDesign: 'Load JSON',
+    badFile: 'The file could not be read.',
     catSpecial: 'Special elements',
     funnelTunnel: 'Funnel + tunnel',
     funnelDrop: 'Funnel + drop',

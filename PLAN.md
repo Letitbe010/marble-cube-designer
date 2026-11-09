@@ -137,7 +137,7 @@ interface Track { name: string; cubes: PlacedCube[]; start: { x: number; y: numb
 | **2. Katalogoa** | Elementu guztiak, bi zatiko banaketa, ID grabatua, txaflanak, ZIP | Kubo-liburutegia | Tuneldun kuboak euskarririk gabe inprimatzen dira |
 | **3. Pista-editorea** | 3D sareta, bidea marraztea, automatikoki banatzea, taldekatzea, egiaztapen geometrikoa | Pista osoaren ZIP-a | 10 kubotik gorako pista bat muntatu eta funtzionatzen du |
 | **4. Hobekuntzak** | Hiru hizkuntzak osorik, erdi-altuerako kuboak, 3MF, bolaren animazioa | — | — |
-| **5. Fisika (aukerakoa)** | Simulazio sinplea (abiadura, jauziak) | — | — |
+| **5. Fisika (aukerakoa)** | Muntaketa eta simulazioa, ikus [PLAN-3-muntaketa-simulazioa.md](PLAN-3-muntaketa-simulazioa.md) | — | — |
 
 Hiru hizkuntzen egitura 1. fasetik egongo da prest. Itzulpen osoak 4. fasean egingo dira.
 
