@@ -19,7 +19,7 @@ export interface Assembly {
   pieces: PlacedPiece[];
 }
 
-export const GRID_SIZE = 10;
+export const GRID_SIZE = 20;
 export const Z_STEP = 25;
 export const EMPTY_ASSEMBLY: Assembly = { name: 'assembly', pieces: [] };
 

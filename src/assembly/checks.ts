@@ -27,7 +27,7 @@ const issue = (code: CheckCode, pieceIds: string[], at?: Vec3): CheckIssue => ({
 const cellKey = (x: number, y: number, z: number) => `${x},${y},${z}`;
 
 /** Where each cell along a leaning ramp is, and the step at which the bar starts above it. */
-function leanCells(piece: PlacedPiece) {
+export function leanCells(piece: PlacedPiece) {
   const { body } = piece.spec;
   const unit = CONFIG.cubeSize;
   return Array.from({ length: body.size[1] }, (_, j) => {
@@ -36,7 +36,7 @@ function leanCells(piece: PlacedPiece) {
   });
 }
 
-function pieceCells(piece: PlacedPiece): [number, number, number][] {
+export function pieceCells(piece: PlacedPiece): [number, number, number][] {
   const [footX, footY] = rotatedFootprint(piece.spec, piece.rotation);
   const cells: [number, number, number][] = [];
   if (piece.spec.body.shape === 'leanRamp') {

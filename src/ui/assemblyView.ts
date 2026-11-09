@@ -29,7 +29,7 @@ const FAST_HUE = 0;
 export class AssemblyView {
   private readonly renderer = new THREE.WebGLRenderer({ antialias: true });
   private readonly scene = new THREE.Scene();
-  private readonly camera = new THREE.PerspectiveCamera(35, 1, 1, 4000);
+  private readonly camera = new THREE.PerspectiveCamera(35, 1, 1, 8000);
   private readonly controls: OrbitControls;
   private readonly raycaster = new THREE.Raycaster();
   private readonly ground = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
@@ -59,7 +59,6 @@ export class AssemblyView {
     const span = GRID_SIZE * CONFIG.cubeSize;
     this.scene.background = new THREE.Color(0xf4f4f1);
     this.camera.up.set(0, 0, 1);
-    this.camera.position.set(span / 2 + span * 0.2, -span * 0.9, span * 1.05);
     this.scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8a80, 1.6));
     const sun = new THREE.DirectionalLight(0xffffff, 1.8);
     sun.position.set(span * 0.6, -span * 0.8, span * 1.4);
@@ -78,8 +77,8 @@ export class AssemblyView {
     container.appendChild(this.renderer.domElement);
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.target.set(span / 2, span / 2, 0);
     this.controls.enableDamping = true;
+    this.frame([span / 2 - 150, span / 2 - 150, 0], [span / 2 + 150, span / 2 + 150, 50]);
 
     this.bindPointer();
     new ResizeObserver(() => this.resize()).observe(container);
@@ -101,6 +100,14 @@ export class AssemblyView {
     this.renderer.domElement.style.height = '100%';
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
+  }
+
+  /** Points the camera at a region of the grid, from the usual angle. */
+  frame(min: Vec3, max: Vec3) {
+    const size = Math.max(max[0] - min[0], max[1] - min[1], max[2] - min[2]);
+    const distance = size * 1.5 + 200;
+    this.controls.target.set((min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2);
+    this.camera.position.copy(this.controls.target).add(new THREE.Vector3(0.3, -0.85, 0.85).multiplyScalar(distance));
   }
 
   /** Finds the cell a pointer aims at: on the ground, on top of a piece or beside it. */

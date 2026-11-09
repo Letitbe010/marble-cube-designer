@@ -115,6 +115,8 @@ Lotura-araua PLAN-2-piezak.md dokumentuko 2.3 atalekoa da.
 | 19 | Segida | Aurreratua | Bi kanika bide beretik, 1,2 s-ko atzerapenarekin | 2 | 16 |
 | 20 | Erakusketa | Aurreratua | Tunelak, uhina, zuloa eta espirala | 1 | 34 |
 
+**Zabalpena (2026-11-09):** erabiltzaileak eskatuta, 12 eraikuntza landuago gehitu dira ("Eraikuntza landuak" maila): Gaztelua, Sugea, Terrazak, Bidezubia, Bi maila, Bi kale bat, Espiral-dorrea, Balantzina, Amaiera handia, Sigi-saga, Begizta-dorrea eta Bira handia. Diseinu propioak dira; merkataritzako multzoen konplexutasuna eta itxura orokorra dute erreferentzia, ez haien muntaketa zehatzak. Irizpide berberak bete behar dituzte.
+
 **Mugak:** muntaien "Ondo" emaitza suposatutako parametroekin lortzen da (5.3 atala) eta ez du bermatzen benetan funtzionatuko dutenik. S5 kalibrazioaren ondoren, 20ak berriro egiaztatu beharko dira. Muntaia txikienak (1, 12) dira lehen inprimatze-proba egokienak. Ontziak ez dira simulatzen pasabide gisa (ikus 7. atala); horregatik galeriako muntaiek ez dute ontzirik ibilbidearen erdian. Kurba irekien abiadura-mugak (0,65 m/s inguru) eta 25 mm-ko jauziaren mugak altuera handiko muntaien diseinua baldintzatzen dute: horregatik kurbak tuneletan jartzen dira haietan.
 
 ## 5. Simulazioa

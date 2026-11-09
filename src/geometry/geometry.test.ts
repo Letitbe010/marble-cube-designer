@@ -84,6 +84,14 @@ describe('profiles', () => {
     }
   });
 
+  it('swings a wave from side to side, back at the centre at each joint', () => {
+    const body = PRESETS.waveLong3.body;
+    const xs = channelPath(PRESETS.waveLong3.channels[0], body).slice(1, -1).map((p) => p[0]);
+    expect(Math.max(...xs) - 25).toBeCloseTo(CONFIG.waveAmplitude, 1);
+    expect(25 - Math.min(...xs)).toBeCloseTo(CONFIG.waveAmplitude, 1);
+    for (const at of [0, 16, 32, 48]) expect(xs[at]).toBeCloseTo(25, 6);
+  });
+
   it('makes a long wave differ from a straight line', () => {
     const wave = heights(PRESETS.waveLong3);
     const line = heights(PRESETS.rampLong3);

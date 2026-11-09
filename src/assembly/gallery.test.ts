@@ -20,13 +20,13 @@ beforeAll(async () => {
 const parameters = (followDelay?: number) => (followDelay ? { marbleCount: 2 as const, followDelay } : {});
 
 describe('gallery', () => {
-  it('holds twenty assemblies with distinct names', () => {
-    expect(GALLERY).toHaveLength(20);
-    expect(new Set(GALLERY.map((item) => item.id)).size).toBe(20);
+  it('holds assemblies with distinct names', () => {
+    expect(GALLERY.length).toBeGreaterThanOrEqual(32);
+    expect(new Set(GALLERY.map((item) => item.id)).size).toBe(GALLERY.length);
   });
 
   it('covers every level', () => {
-    expect(new Set(GALLERY.map((item) => item.level))).toEqual(new Set(['beginner', 'intermediate', 'advanced']));
+    expect(new Set(GALLERY.map((item) => item.level))).toEqual(new Set(['beginner', 'intermediate', 'advanced', 'showpiece']));
   });
 
   for (const { id, assembly, followDelay } of GALLERY) {

@@ -45,11 +45,13 @@ function sidePath(a: SidePort, b: SidePort, body: Body, profile: Profile): Vec3[
     const changesLane = parseSide(a).lane !== parseSide(b).lane;
     const n = profile === 'flat' && !changesLane ? 1 : steps * cells;
     const lateralIsX = da[0] === 0;
+    // A wave swings from side to side, crossing the centre at every joint between cells.
+    const swing = (t: number) => (profile === 'wave' ? CONFIG.waveAmplitude * Math.sin(Math.PI * cells * t) : 0);
     for (let i = 0; i <= n; i++) {
       const t = i / n;
       points.push([
-        pa[0] + (pb[0] - pa[0]) * (lateralIsX ? easeLane(t) : t),
-        pa[1] + (pb[1] - pa[1]) * (lateralIsX ? t : easeLane(t)),
+        pa[0] + (pb[0] - pa[0]) * (lateralIsX ? easeLane(t) : t) + (lateralIsX ? swing(t) : 0),
+        pa[1] + (pb[1] - pa[1]) * (lateralIsX ? t : easeLane(t)) + (lateralIsX ? 0 : swing(t)),
         heightAt(profile, pa[2], pb[2], t, cells),
       ]);
     }

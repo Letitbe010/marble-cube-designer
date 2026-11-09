@@ -26,6 +26,8 @@ export const CONFIG = {
   sphereSegments: 32,
   /** Number of steps along curved paths. */
   curveSteps: 16,
+  /** How far a wave profile swings to each side of its lane. */
+  waveAmplitude: 9,
   /** Distance from the centre of a face to each of its two side lanes. */
   laneOffset: 12.5,
   /** Solid material left beside and above an arch opening. */

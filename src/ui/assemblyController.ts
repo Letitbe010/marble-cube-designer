@@ -12,8 +12,10 @@ import {
   pieceMatrix,
   removePiece,
   ROTATIONS,
+  rotatedFootprint,
   rotatePiece,
   serializeAssembly,
+  Z_STEP,
   type Assembly,
   type Cell,
   type Rotation,
@@ -81,6 +83,21 @@ export class AssemblyController {
       onClick: (cell, pieceId) => this.onViewClick(cell, pieceId),
     });
     this.syncView();
+    this.frameAssembly();
+  }
+
+  /** Brings the whole assembly into view. */
+  private frameAssembly() {
+    const { pieces } = this.assembly;
+    if (pieces.length === 0) return;
+    const unit = CONFIG.cubeSize;
+    const extents = pieces.map((p) => {
+      const [footX, footY] = rotatedFootprint(p.spec, p.rotation);
+      return [p.cell[0] * unit, p.cell[1] * unit, p.cell[2] * Z_STEP, (p.cell[0] + footX) * unit, (p.cell[1] + footY) * unit, (p.cell[2] + heightSteps(p.spec)) * Z_STEP];
+    });
+    const least = (i: number) => Math.min(...extents.map((e) => e[i]));
+    const most = (i: number) => Math.max(...extents.map((e) => e[i]));
+    this.view.frame([least(0), least(1), least(2)], [most(3), most(4), most(5)]);
   }
 
   private get assembly() {
@@ -273,12 +290,13 @@ export class AssemblyController {
     this.selected = null;
     this.brush = null;
     this.commit(item.assembly);
+    this.frameAssembly();
     this.deps.onGalleryLoad(item);
   }
 
   private renderGallery(): string {
     const { t, lang } = this.deps;
-    const labels: Record<GalleryLevel, StringKey> = { beginner: 'galBeginner', intermediate: 'galIntermediate', advanced: 'galAdvanced' };
+    const labels: Record<GalleryLevel, StringKey> = { showpiece: 'galShowpiece', beginner: 'galBeginner', intermediate: 'galIntermediate', advanced: 'galAdvanced' };
     const verdicts: Record<Verdict, StringKey> = { good: 'verdictGood', marginal: 'verdictMarginal', problem: 'verdictProblem' };
     const text = (item: GalleryItem) => GALLERY_TEXT[item.id][lang()];
     const groups = (Object.keys(labels) as GalleryLevel[])
@@ -304,6 +322,7 @@ export class AssemblyController {
   private async importFile(file: File) {
     try {
       this.commit(parseAssembly(await file.text()));
+      this.frameAssembly();
       this.importFailed = false;
       this.selected = null;
     } catch {

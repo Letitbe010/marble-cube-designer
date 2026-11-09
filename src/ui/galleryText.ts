@@ -101,6 +101,66 @@ export const GALLERY_TEXT: Record<string, Record<Lang, Text>> = {
     es: { name: 'En fila', note: 'Dos canicas por el mismo camino, una tras otra.' },
     en: { name: 'Convoy', note: 'Two marbles on one track, one behind the other.' },
   },
+  castle: {
+    eu: { name: 'Gaztelua', note: 'Dorre bat eta bidea bere azpitik itzultzen da.' },
+    es: { name: 'El castillo', note: 'Una torre con el camino que vuelve por debajo de sí mismo.' },
+    en: { name: 'The castle', note: 'A tower whose track comes back underneath itself.' },
+  },
+  serpentine: {
+    eu: { name: 'Sugea', note: 'Hiru errenkada dohain, tuneletako bira itxiekin.' },
+    es: { name: 'La serpiente', note: 'Tres filas en zigzag con giros en túnel.' },
+    en: { name: 'The serpent', note: 'Three rows back and forth, with bends in tunnels.' },
+  },
+  terraces: {
+    eu: { name: 'Terrazak', note: 'Arrapala askeak eta tunelak maila ezberdinetan.' },
+    es: { name: 'Las terrazas', note: 'Rampas libres y túneles a distintos niveles.' },
+    en: { name: 'The terraces', note: 'Free ramps and tunnels at different levels.' },
+  },
+  viaduct: {
+    eu: { name: 'Bidezubia', note: 'Pista luzea zutabe eta arku-ilaren gainean.' },
+    es: { name: 'El viaducto', note: 'Una pista larga sobre columnas y arcos.' },
+    en: { name: 'The viaduct', note: 'A long track on columns and arches.' },
+  },
+  crossover: {
+    eu: { name: 'Bi maila', note: 'Bi kanika gurutzatzen dira, bata bestearen gainetik.' },
+    es: { name: 'A dos niveles', note: 'Dos canicas se cruzan, una por encima de la otra.' },
+    en: { name: 'Two levels', note: 'Two marbles cross, one above the other.' },
+  },
+  twinMerge: {
+    eu: { name: 'Bi kale bat', note: 'Bi kanika kale banatan, eta Y batean elkartzen dira.' },
+    es: { name: 'Dos carriles en uno', note: 'Dos canicas en carriles separados que se unen en una Y.' },
+    en: { name: 'Two lanes into one', note: 'Two marbles on separate lanes joining at a Y.' },
+  },
+  spiralTower: {
+    eu: { name: 'Espiral-dorrea', note: 'Eskailera luzea espiral batean amaitzen da.' },
+    es: { name: 'Torre espiral', note: 'Una larga escalera que termina en una espiral.' },
+    en: { name: 'Spiral tower', note: 'A long staircase ending in a spiral.' },
+  },
+  seesawJunction: {
+    eu: { name: 'Balantzina', note: 'Kanika balantzinara erortzen da, eta bi irteera ditu.' },
+    es: { name: 'El balancín', note: 'La canica cae sobre el balancín, que tiene dos salidas.' },
+    en: { name: 'The seesaw', note: 'The marble drops onto the seesaw, which has two exits.' },
+  },
+  finale: {
+    eu: { name: 'Amaiera handia', note: 'Inbutua, tunelak, eskailera eta ganbera batean amaiera.' },
+    es: { name: 'Gran final', note: 'Embudo, túneles, escalera y final en una cámara.' },
+    en: { name: 'Grand finale', note: 'A funnel, tunnels, stairs and a chamber at the end.' },
+  },
+  leanZigzag: {
+    eu: { name: 'Sigi-saga', note: 'Arrapala askeak ezker-eskuin, tunel-kurbekin.' },
+    es: { name: 'Zigzag', note: 'Rampas libres a un lado y otro, con curvas en túnel.' },
+    en: { name: 'Zigzag', note: 'Free ramps from side to side, with tunnel bends.' },
+  },
+  hiddenLoopTower: {
+    eu: { name: 'Begizta-dorrea', note: 'Dorre batetik begizta batera, bidea bere azpitik.' },
+    es: { name: 'Torre con bucle', note: 'De una torre a un bucle que pasa bajo sí mismo.' },
+    en: { name: 'Loop tower', note: 'From a tower into a loop that passes under itself.' },
+  },
+  grandTour: {
+    eu: { name: 'Bira handia', note: 'Tunelak, kurbak, zuloa eta espirala muntaia luze batean.' },
+    es: { name: 'Gran recorrido', note: 'Túneles, curvas, agujero y espiral en un largo montaje.' },
+    en: { name: 'Grand tour', note: 'Tunnels, bends, a hole and a spiral in one long build.' },
+  },
   showcase: {
     eu: { name: 'Erakusketa', note: 'Tunelak, uhina, zuloa eta espirala muntaia batean.' },
     es: { name: 'Exposición', note: 'Túneles, onda, agujero y espiral en un mismo montaje.' },

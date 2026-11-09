@@ -96,6 +96,28 @@ Lehen proposamena: pisu baten pendulua, ardatzarekin (8. pausoko ardatz bera, jo
 
 Benetako balioak txikiagoak izango dira (PLAk kolpea xurgatzen du, eta marruskadura dago). Horregatik, pisuaren kolpea jasotzeko gainazal metalikoa erabiliko da, eta balioa neurtu egingo da. **Bideragarritasuna:** kanika horizontalki abiaraztea bideragarria da; maila bat (50 mm) igotzea litekeena da; zirkuitu itxia (kanika hasierara itzultzea) ez da bermatzen. Finkatze-interfazea (2.5) aurrebaldintza da, kolpeak piezak mugitu baititzake.
 
+### 2.9 Kanika-igogailua (11. pausoa, azkena)
+
+Helburua: kanikak zirkuituaren amaieratik hasierara igotzea, begizta jarraituak sortzeko. Erabiltzaileak azken pausotzat utzi du, eta eskakizun handikoa da. Oraingoz plangintza da; balio guztiak **suposizioak** dira, eta 9. pausoko probak behar dituzte.
+
+| Aukera | Abantailak | Eragozpenak | Balorazioa |
+|---|---|---|---|
+| Torloju helikoidala (Arkimedes) | Jarraitua, kanikak banan-banan igotzen ditu, modularra | Pieza luzea, doitasun handia; PLA-ren marruskadura | **Gomendatua** |
+| Gurpil poltsaduna | Sinplea, oso fidagarria | Altuera gurpilaren erradioak mugatzen du | Altuera txikietarako alternatiba |
+| Ontzidun uhala edo katea | Altuera handia | Pieza asko, tentsioa behar du | Altuera oso handietarako bakarrik |
+
+**Gomendioa:** torloju helikoidala, 100 mm-ko modulu pilagarrietan, ardatz baten inguruan biratuz, motor batekin. Lehen bertsiorako, DC motor erredukzioduna edo urrats-motorra, eta elikatze-iturri bat. Arduino bat ez da nahitaezkoa torlojua biratzeko; erabilgarria da sentsore batekin (kanika sartu dela detektatzeko), motorra piztu eta itzaltzeko eta zarata eta higadura murrizteko.
+
+**Diseinuaren baldintzak:**
+
+- Beheko sarrerak saretako `S.M` edo `S.T` portu batekin lotu behar du, eta goiko irteerak hasierako pieza bat elikatu.
+- Motorra eta elektronika oinarri itxi batean, sareta-gelaxka batzuen azpian edo alboan.
+- Kolpe eta bibrazioek zirkuitua ez mugitzeko, finkatze-interfazearen (2.5) mende dago.
+
+**Faseak:** (1) kanika bakarreko torloju-probeta, motorrik gabe; (2) motorra eta iturria; (3) sentsorea eta Arduinoa; (4) liburutegiko pieza eta simulazioan abiadura-iturri gisa; (5) begizta osoa ordubetez probatu.
+
+**Erabaki gabe:** motor mota, elikadura, altuera maximoa, eta aplikazioak elektronikaren programa eman behar duen ala ez.
+
 ## 3. Estaldura
 
 | Irudietan agertzen dena | Familia | Pausoa |
@@ -137,9 +159,12 @@ Pauso bakoitza amaitzean aplikazioa funtzionamenduan egongo da eta GitHub-en arg
 | **F** | **Finkatze-interfazea** (2.5) | Izkinetako tetoiak eta poltsak; oinarri-plaka | Aukera piezetan; plaka muntaian eta ZIPean; izkinen talka-egiaztapena | Hegal-testa; tetoi eta poltsen elkartzea testetan |
 | **M4** | **Muntaia-galeria** ([PLAN-3](PLAN-3-muntaketa-simulazioa.md), 4.4) | 20 muntaia prest, dauden piezekin | Galeria Muntaketa fitxan: kargatu, simulatu, ZIP-a | Muntaia bakoitzak egiaztapenak eta simulazioa gainditzen ditu |
 | **9** | **Kalibrazioa eta inprimatze-probak** | Kalibrazio-pieza eta aurreko pausoetako probak; plaka txiki bat eta bi kubo, 0,1 / 0,2 / 0,3 mm-ko jokoekin; kolpe-proba altzairuzko kanikarekin; parametroak doitu | Parametroen azken balioak | Pista bat fisikoki dabil |
+| **G** | **Galeria zabaldua eta sareta handiagoa** | 20 × 20 gelaxka; uhin-malda albotik ere uhintsua | 12 eraikuntza landu gehiago ([PLAN-3](PLAN-3-muntaketa-simulazioa.md), 4.4) | Muntaia bakoitzak testak gainditzen ditu |
 | **10** | **Kanika-bultzagailua** (2.8) | Penduluzko bultzagailua; lehenik horizontala, gero igoera | Pieza mugikorra liburutegian; simulazioan abiadura-iturri gisa | Igoera neurtu altzairuz eta beiraz |
 
 **8. pausoan erabakitakoa (2026-11-09):** arrapala askeak 1:2 maldakoak dira, ertza 25 mm-ko saretan geratzeko (2 unitate, 75 mm-ko altuera; 3 unitate, 100 mm-ko altuera). Etzanda inprimatzen dira, eta ez dute kanalean geruza-eskailerarik. Balantzina goitik erortzen den kanika jasotzen duen bi noranzkoko etengailua da (1 × 3 × 1); oinarria eta besoa bereizita inprimatzen dira, eta 1,75 mm-ko filamentua da ardatza. Simulazioan bide finko bat da: besoaren mugimendua ez da kalkulatzen, eta txandakatzea ez dago simulatuta.
+
+Azken pausoa **11. Kanika-igogailua** da (2.9): 9. eta 10. pausoen ondoren.
 
 Pistaren editorea (6) kanal bikoitzen aurretik doa, proiektuaren helburu nagusia delako eta bikoitzak gero portu-eredua zabalduz gehitzen direlako. Bikoitzek ez dute 1. pausoko eredua aldatzen behartuko, portuek hasieratik `lane` eremua izango dutelako (0 balioarekin).
 
