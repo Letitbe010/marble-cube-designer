@@ -11,6 +11,7 @@ export interface CalibrationValues {
   jointRetention: number;
   jumpRetention: number;
   maxLean: number;
+  launchSpeed: number;
 }
 
 export type CalibrationField = keyof CalibrationValues;
@@ -24,6 +25,7 @@ export const CALIBRATION_FIELDS: { field: CalibrationField; group: 'geometry' | 
   { field: 'jointRetention', group: 'simulation', min: 0.5, max: 1, step: 0.01 },
   { field: 'jumpRetention', group: 'simulation', min: 0.2, max: 1, step: 0.01 },
   { field: 'maxLean', group: 'simulation', min: 20, max: 85, step: 1 },
+  { field: 'launchSpeed', group: 'simulation', min: 100, max: 4000, step: 50 },
 ];
 
 const STORAGE_KEY = 'marble-cube-calibration';
@@ -41,8 +43,8 @@ export function withConfig<T>(patch: Partial<typeof CONFIG>, work: () => T): T {
 
 export function currentValues(): CalibrationValues {
   const { ballDiameter, boreClearance, fitClearance, locatorClearance } = CONFIG;
-  const { crr, jointRetention, jumpRetention, maxLean } = DEFAULT_PARAMS;
-  return { ballDiameter, boreClearance, fitClearance, locatorClearance, crr, jointRetention, jumpRetention, maxLean };
+  const { crr, jointRetention, jumpRetention, maxLean, launchSpeed } = DEFAULT_PARAMS;
+  return { ballDiameter, boreClearance, fitClearance, locatorClearance, crr, jointRetention, jumpRetention, maxLean, launchSpeed };
 }
 
 /** Names the fields that are out of range; a bore too large for the levels fails too. */
@@ -54,9 +56,9 @@ export function invalidFields(values: CalibrationValues): CalibrationField[] {
 }
 
 function apply(values: CalibrationValues) {
-  const { ballDiameter, boreClearance, fitClearance, locatorClearance, crr, jointRetention, jumpRetention, maxLean } = values;
+  const { ballDiameter, boreClearance, fitClearance, locatorClearance, crr, jointRetention, jumpRetention, maxLean, launchSpeed } = values;
   Object.assign(CONFIG, { ballDiameter, boreClearance, fitClearance, locatorClearance });
-  Object.assign(DEFAULT_PARAMS, { crr, jointRetention, jumpRetention, maxLean });
+  Object.assign(DEFAULT_PARAMS, { crr, jointRetention, jumpRetention, maxLean, launchSpeed });
 }
 
 /** Puts any values saved in this browser into effect. Run once, before building anything. */

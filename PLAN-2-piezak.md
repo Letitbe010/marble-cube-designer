@@ -167,6 +167,8 @@ Pauso bakoitza amaitzean aplikazioa funtzionamenduan egongo da eta GitHub-en arg
 
 **9. pausoaren egoera (2026-11-09):** proba-kita, Kalibrazioa fitxa eta [KALIBRAZIOA.md](KALIBRAZIOA.md) gida prest daude. Inprimatze-probak eta S5 erabiltzailearen inprimagailuaren zain daude.
 
+**10. pausoaren egoera (2026-11-09):** penduluzko bultzagailua eta igoera-pieza eginda daude: besoa 1 × 2 × 2 markoan, 1,75 mm-ko filamentuzko ardatzarekin, eta buruan pisua gehitzeko poltsa batekin. Kolpe-gainazal metalikoa zuzenean itsatsi daiteke (M6 zirrindola, adibidez). Simulazioan abiadura finko bat da (800 mm/s, suposizioa, Kalibrazioa fitxan aldagarria). Ez dago probatuta: igoera neurtzea 9. pausoaren zain dago.
+
 Azken pausoa **11. Kanika-igogailua** da (2.9): 9. eta 10. pausoen ondoren.
 
 Pistaren editorea (6) kanal bikoitzen aurretik doa, proiektuaren helburu nagusia delako eta bikoitzak gero portu-eredua zabalduz gehitzen direlako. Bikoitzek ez dute 1. pausoko eredua aldatzen behartuko, portuek hasieratik `lane` eremua izango dutelako (0 balioarekin).

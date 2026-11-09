@@ -6,7 +6,7 @@ import { exportAssemblyZip } from '../assembly/export';
 import { addPiece, EMPTY_ASSEMBLY, type Assembly, type Cell, type Rotation } from '../assembly/model';
 import { simulateAssembly } from '../simulation/marble';
 import { CONFIG } from './config';
-import { buildSeesawArm, leanSeat, seesawRestTilt } from './moving';
+import { buildMovingPart, buildPendulumArm, buildSeesawArm, leanSeat, pendulumSeatY } from './moving';
 import { buildPiece, buildSolid } from './piece';
 import { type PieceSpec } from './ports';
 import { PRESETS } from './presets';
@@ -113,6 +113,74 @@ describe('leaning ramp', () => {
   });
 });
 
+describe('pendulum launcher', () => {
+  const spec = PRESETS.pendulum;
+  const frame = () => buildSolid(wasm, spec, { omitMoving: true });
+
+  function swung(degrees: number): Manifold {
+    const arm = buildPendulumArm(wasm, true);
+    const centred = arm.translate([0, -57, -92]);
+    const turned = centred.rotate([degrees, 0, 0]);
+    const placed = turned.translate([0, 57, 92]);
+    [arm, centred, turned].forEach((m) => m.delete());
+    return placed;
+  }
+
+  it('is a frame and a separate arm', () => {
+    expect(buildPiece(wasm, spec).pieces).toBe(2);
+  });
+
+  it('lets the arm swing away from the marble without touching the frame', () => {
+    for (const degrees of [0, 20, 45, 70, 90]) expect(shared(frame(), swung(degrees)), `${degrees}°`).toBeLessThan(0.01);
+  });
+
+  it('strikes the marble where it waits', () => {
+    const arm = buildPendulumArm(wasm, true);
+    const box = arm.boundingBox();
+    arm.delete();
+    expect(box.min[1]).toBeCloseTo(pendulumSeatY() + CONFIG.ballDiameter / 2, 4);
+  });
+
+  it('stays inside its footprint when hanging', () => {
+    const arm = buildPendulumArm(wasm, true);
+    const box = arm.boundingBox();
+    arm.delete();
+    expect(box.min[0]).toBeGreaterThan(0);
+    expect(box.max[0]).toBeLessThan(CONFIG.cubeSize);
+    expect(box.max[1]).toBeLessThanOrEqual(100);
+    expect(box.max[2]).toBeLessThanOrEqual(100);
+  });
+
+  it('prints as two parts on the bed', () => {
+    const { parts } = buildPrintParts(wasm, spec, { engrave: true });
+    expect(parts.map((p) => p.suffix)).toEqual(['base', 'arm']);
+    parts.forEach((part) => {
+      expect(part.result.pieces).toBe(1);
+      expect(zRange(part.result.positions)[0]).toBeCloseTo(0, 4);
+    });
+  });
+
+  it('launches a marble up a climb and into a stop', () => {
+    const track = build([spec, [5, 7, 0]], [PRESETS.rampClimb, [5, 6, 0]], [PRESETS.stop, [5, 5, 0]]);
+    expect(codes(track)).toEqual([]);
+    const [result] = simulateAssembly(track);
+    expect(result.outcome).toBe('finished');
+    expect(result.pieceIds).toEqual(['p1', 'p2', 'p3']);
+  });
+
+  it('falls short when launched too gently', () => {
+    const track = build([spec, [5, 7, 0]], [PRESETS.rampClimb, [5, 6, 0]], [PRESETS.stop, [5, 5, 0]]);
+    expect(simulateAssembly(track, { launchSpeed: 300 })[0].outcome).toBe('stopped');
+  });
+
+  it('climbs only as high as its energy allows', () => {
+    const track = build([spec, [5, 7, 0]], [PRESETS.rampClimb, [5, 6, 0]], [PRESETS.stop, [5, 5, 0]]);
+    const limit = Math.sqrt(2 * (5 / 7) * 9810 * 25);
+    expect(simulateAssembly(track, { launchSpeed: limit * 0.9, crr: 0, jointRetention: 1 })[0].outcome).toBe('stopped');
+    expect(simulateAssembly(track, { launchSpeed: limit * 1.1, crr: 0, jointRetention: 1 })[0].outcome).toBe('finished');
+  });
+});
+
 describe('seesaw', () => {
   const spec = PRESETS.seesaw;
 
@@ -125,14 +193,14 @@ describe('seesaw', () => {
   });
 
   it('leaves the arm free of the base at both ends of its travel', () => {
-    for (const tilt of [seesawRestTilt(), -seesawRestTilt(), 0]) {
+    for (const tilt of [10, -10, 0]) {
       const base = buildSolid(wasm, spec, { omitMoving: true });
       expect(shared(base, buildSeesawArm(wasm, tilt)), `tilt ${tilt}`).toBeLessThan(0.01);
     }
   });
 
   it('keeps the arm inside its own footprint', () => {
-    const arm = buildSeesawArm(wasm, seesawRestTilt());
+    const arm = buildMovingPart(wasm, 'seesaw', true);
     const box = arm.boundingBox();
     arm.delete();
     expect(box.min[1]).toBeGreaterThanOrEqual(0);

@@ -1,6 +1,6 @@
 import type { Manifold, ManifoldToplevel } from 'manifold-3d';
 import { boreRadius, CONFIG, ROOF_PEAK_FACTOR } from './config';
-import { bodyHeight, levelZ, type Body, type Vec3 } from './ports';
+import { bodyHeight, levelZ, type Body, type Shape, type Vec3 } from './ports';
 
 /** Depth of the notch that keeps a leaning ramp on the edge of its support. */
 const NOTCH_DEPTH = 2;
@@ -80,7 +80,7 @@ export function buildLeanRamp(wasm: ManifoldToplevel, body: Body): Manifold {
 }
 
 /** Circle with a pointed top, so that a horizontal hole prints without support. */
-function axleHole(wasm: ManifoldToplevel, radius: number, y: number, z: number, fromX: number, toX: number): Manifold {
+function teardropProfile(radius: number, y: number, z: number): Point2[] {
   const steps = 24;
   const ring: Point2[] = [];
   for (let i = 0; i < steps; i++) {
@@ -88,7 +88,11 @@ function axleHole(wasm: ManifoldToplevel, radius: number, y: number, z: number, 
     ring.push([y + radius * Math.cos(angle), z + radius * Math.sin(angle)]);
   }
   ring.push([y, z + radius * ROOF_PEAK_FACTOR]);
-  return prismX(wasm, ring, fromX, toX);
+  return ring;
+}
+
+function axleHole(wasm: ManifoldToplevel, radius: number, y: number, z: number, fromX: number, toX: number): Manifold {
+  return prismX(wasm, teardropProfile(radius, y, z), fromX, toX);
 }
 
 const centreX = () => CONFIG.cubeSize / 2;
@@ -144,8 +148,119 @@ export function buildSeesawArm(wasm: ManifoldToplevel, tilt = 0): Manifold {
   return placed;
 }
 
+/** Pendulum launcher geometry, in millimetres, for its 1 × 2 × 2 body. */
+const PENDULUM = {
+  /** Plane of the arm's striking face in the body. */
+  faceY: 46,
+  axleZ: 92,
+  /** Distance of the axle from the striking face. */
+  axleDepth: 11,
+  /** Half widths, across the slot. */
+  bossHalf: 16.5,
+  barHalf: 5,
+  headHalf: 16.5,
+  fingerHalf: 7,
+  slotHalf: 18,
+  /** Height of the ledges the head swings over. */
+  ledge: 33,
+  /** Thicknesses, from the striking face. */
+  barThick: 22,
+  headThick: 28,
+  fingerThick: 14,
+  /** Positions along the arm, measured down from its top end. */
+  axleAt: 6,
+  headStart: 36,
+  fingerStart: 63.5,
+  tip: 80,
+};
+
+/** Where the marble waits, just in front of the hanging arm. */
+export const pendulumSeatY = () => PENDULUM.faceY - CONFIG.ballDiameter / 2;
+
+/** Height of the top of the marble channel's centre line at the launcher. */
+const LAUNCH_Z = 25;
+
+/** The frame: a block with a slot for the arm, an axle hole and a channel leading out. */
+export function buildPendulumFrame(wasm: ManifoldToplevel, body: Body): Manifold {
+  const { cubeSize, fitClearance, pinDiameter } = CONFIG;
+  const margin = fitClearance / 2;
+  const length = body.size[1] * cubeSize;
+  const height = bodyHeight(body);
+  const { faceY, axleZ, axleDepth, slotHalf, ledge, tip, axleAt } = PENDULUM;
+  const axleY = faceY + axleDepth;
+  const x = cubeSize / 2;
+  const r = boreRadius();
+  const seatY = pendulumSeatY();
+  const { Manifold } = wasm;
+
+  const block = prismX(wasm, [[margin, 0], [length - margin, 0], [length - margin, height], [margin, height]], margin, cubeSize - margin);
+  const swing = prismX(wasm, [[-1, ledge], [length + 1, ledge], [length + 1, height + 1], [-1, height + 1]], x - slotHalf, x + slotHalf);
+  const upper = prismX(wasm, [[-1, LAUNCH_Z], [seatY + r, LAUNCH_Z], [seatY + r, ledge + 1], [-1, ledge + 1]], x - r, x + r);
+
+  const ball = Manifold.sphere(r, 32);
+  const ends = [ball.translate([x, seatY, LAUNCH_Z]), ball.translate([x, -1, LAUNCH_Z])];
+  const channel = Manifold.hull(ends);
+  // A slight hollow keeps the marble waiting at the arm until it is struck.
+  const seat = ball.translate([x, seatY, LAUNCH_Z - 0.8]);
+
+  // The arm's finger sweeps a circle around the axle, only as wide as the channel.
+  const radius = Math.hypot(axleDepth, tip - axleAt) + 1.2;
+  const disc = Manifold.cylinder(2 * r, radius, radius, 128);
+  const turned = disc.rotate([0, 90, 0]);
+  const sweep = turned.translate([x - r, axleY, axleZ]);
+  const hole = axleHole(wasm, (pinDiameter + 0.1) / 2, axleY, axleZ, -1, cubeSize + 1);
+
+  const tools = Manifold.union([swing, upper, channel, seat, sweep, hole]);
+  const result = block.subtract(tools);
+  [block, swing, upper, ball, ...ends, channel, seat, disc, turned, sweep, hole, tools].forEach((m) => m.delete());
+  return result;
+}
+
+/**
+ * The swinging arm, built lying on its striking face so that it prints flat. A pocket
+ * in the head takes extra weight (steel nuts or similar), and it opens upwards when printing.
+ */
+export function buildPendulumArm(wasm: ManifoldToplevel, assembled = false): Manifold {
+  const { Manifold } = wasm;
+  const { pinDiameter, axleClearance } = CONFIG;
+  const { bossHalf, barHalf, headHalf, fingerHalf, barThick, headThick, fingerThick, axleAt, headStart, fingerStart, tip, axleDepth, faceY, axleZ } = PENDULUM;
+  const part = (half: number, fromY: number, toY: number, thick: number) => {
+    const raw = Manifold.cube([2 * half, toY - fromY, thick]);
+    const placed = raw.translate([-half, fromY, 0]);
+    raw.delete();
+    return placed;
+  };
+  const parts = [
+    part(bossHalf, 0, axleAt * 2 + 2, barThick),
+    part(barHalf, 0, headStart + 1, barThick),
+    part(headHalf, headStart, fingerStart, headThick),
+    part(fingerHalf, fingerStart - 1, tip, fingerThick),
+  ];
+  const solid = Manifold.union(parts);
+  parts.forEach((p) => p.delete());
+
+  // The hole points along X here, so its teardrop roof is right for printing.
+  const hole = prismX(wasm, teardropProfile(pinDiameter / 2 + axleClearance, axleAt, axleDepth), -bossHalf - 1, bossHalf + 1);
+  const rawPocket = Manifold.cylinder(headThick, 11, 11, 48);
+  const pocket = rawPocket.translate([0, (headStart + fingerStart) / 2, 8]);
+  const tools = Manifold.union([hole, pocket]);
+  const arm = solid.subtract(tools);
+  [solid, hole, rawPocket, pocket, tools].forEach((m) => m.delete());
+  if (!assembled) return arm;
+
+  const hanging = arm.rotate([-90, 0, 0]);
+  const placed = hanging.translate([CONFIG.cubeSize / 2, faceY, axleZ + axleAt]);
+  [arm, hanging].forEach((m) => m.delete());
+  return placed;
+}
+
+/** The moving part of a piece, either posed in place or laid out for printing. */
+export function buildMovingPart(wasm: ManifoldToplevel, shape: Shape, assembled: boolean): Manifold {
+  if (shape === 'pendulum') return buildPendulumArm(wasm, assembled);
+  return buildSeesawArm(wasm, assembled ? ARM.tilt : 0);
+}
+
 /** The arm as it sits in the fork, resting on its low end. */
-export const seesawRestTilt = () => ARM.tilt;
 
 /** Height of the groove where a falling marble lands on the arm. */
 export const seesawLanding = () => ARM.axleZ - ARM.axleAbove + ARM.height;

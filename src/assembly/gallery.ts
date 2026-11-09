@@ -339,6 +339,12 @@ export const GALLERY: GalleryItem[] = [
       .to('spiral', { drop: 1 });
   }),
 
+  make('launcher', 'advanced', (d) => {
+    d.place('pendulum', [5, 7, 0]);
+    d.place('rampClimb', [5, 6, 0]);
+    d.place('stop', [5, 5, 0]);
+  }),
+
   make('castle', 'showpiece', (d) => {
     d.line('start', [6, 7, 9], 'S')
       .to('rampStraight').to('straightTunnel').to('curveTunnel')

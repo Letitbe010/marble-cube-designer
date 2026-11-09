@@ -101,6 +101,11 @@ export const GALLERY_TEXT: Record<string, Record<Lang, Text>> = {
     es: { name: 'En fila', note: 'Dos canicas por el mismo camino, una tras otra.' },
     en: { name: 'Convoy', note: 'Two marbles on one track, one behind the other.' },
   },
+  launcher: {
+    eu: { name: 'Bultzagailua', note: 'Pendulu batek kanika abiarazten du, eta malda batetik gora igotzen da.' },
+    es: { name: 'El lanzador', note: 'Un péndulo lanza la canica, que sube por una rampa.' },
+    en: { name: 'The launcher', note: 'A pendulum launches the marble up a ramp.' },
+  },
   castle: {
     eu: { name: 'Gaztelua', note: 'Dorre bat eta bidea bere azpitik itzultzen da.' },
     es: { name: 'El castillo', note: 'Una torre con el camino que vuelve por debajo de sí mismo.' },

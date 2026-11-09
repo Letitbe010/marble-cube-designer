@@ -1,6 +1,6 @@
 import type { Manifold, ManifoldToplevel } from 'manifold-3d';
 import { CONFIG } from './config';
-import { buildLeanRamp, buildSeesawBase } from './moving';
+import { buildLeanRamp, buildPendulumFrame, buildSeesawBase } from './moving';
 import type { Body, Vec3 } from './ports';
 
 const ARC_STEPS = 48;
@@ -61,6 +61,8 @@ export function buildBody(wasm: ManifoldToplevel, body: Body): Manifold {
       return buildLeanRamp(wasm, body);
     case 'seesaw':
       return buildSeesawBase(wasm, body);
+    case 'pendulum':
+      return buildPendulumFrame(wasm, body);
     case 'box':
       return box();
     case 'cylinder': {

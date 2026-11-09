@@ -1,7 +1,7 @@
 import { spiralPath } from '../geometry/cavities';
 import { CONFIG } from '../geometry/config';
 import { channelPath } from '../geometry/paths';
-import { seesawLanding } from '../geometry/moving';
+import { pendulumSeatY, seesawLanding } from '../geometry/moving';
 import { bodyHeight, FACE_DIR, isSpiral, isVertical, parseSide, portPosition, verticalKind, type Channel, type Vec3 } from '../geometry/ports';
 import { toWorld, type Assembly, type PlacedPiece } from './model';
 
@@ -40,7 +40,9 @@ export interface RunGraph {
 }
 
 function initialFlow(channel: Channel, zFrom: number, zTo: number): Flow {
-  const { from, to, section } = channel;
+  const { from, to, section, profile } = channel;
+  // A climb is only ever taken uphill, carried by the speed it was given.
+  if (profile === 'climb') return 'forward';
   if (isVertical(from) && isVertical(to)) return verticalKind(from) === 'U' ? 'forward' : 'backward';
   if (isVertical(from) || isVertical(to)) {
     const port = (isVertical(from) ? from : to) as Parameters<typeof verticalKind>[0];
@@ -96,6 +98,12 @@ function runsOf(piece: PlacedPiece): Run[] {
     const [a, b] = [describe(c.from), describe(c.to)];
     return makeRun(piece, [a, b], initialFlow(c, a.position[2], b.position[2]), channelPath(c, body), open(c), !open(c));
   });
+
+  if (body.shape === 'pendulum') {
+    const exit = describe('S.M.0');
+    const seat: Vec3 = [CONFIG.cubeSize / 2, pendulumSeatY(), exit.position[2]];
+    runs.push(makeRun(piece, [{ position: seat, dir: null, vertical: 'U' }, exit], 'forward', [seat, exit.position], true, true));
+  }
 
   if (body.shape === 'seesaw') {
     // The arm can tip either way, so both ends count as ways out.

@@ -1,9 +1,9 @@
 import type { Manifold, ManifoldToplevel } from 'manifold-3d';
 import { CONFIG } from './config';
-import { buildSeesawArm, leanAngle } from './moving';
+import { buildMovingPart, leanAngle } from './moving';
 import { buildReportedSolid, toResult, type BuildResult } from './piece';
 import type { StudReport } from './locators';
-import { bodyHeight, channelKey, type PieceSpec } from './ports';
+import { bodyHeight, channelKey, hasMovingPart, type PieceSpec } from './ports';
 
 export interface PrintOptions {
   /** Cuts a tunnel piece in two at tunnel height, joined with pins. */
@@ -184,7 +184,7 @@ export function buildPrintParts(wasm: ManifoldToplevel, spec: PieceSpec, options
   };
 
   try {
-    const built = buildReportedSolid(wasm, spec, { locators: options.locators, omitMoving: spec.body.shape === 'seesaw' });
+    const built = buildReportedSolid(wasm, spec, { locators: options.locators, omitMoving: hasMovingPart(spec.body.shape) });
     const { studs } = built;
     let solid = keep(built.solid);
     if (options.engrave) solid = keep(engraveId(wasm, solid, id, spec));
@@ -204,8 +204,8 @@ export function buildPrintParts(wasm: ManifoldToplevel, spec: PieceSpec, options
       };
     }
 
-    if (spec.body.shape === 'seesaw') {
-      const arm = keep(buildSeesawArm(wasm));
+    if (hasMovingPart(spec.body.shape)) {
+      const arm = keep(buildMovingPart(wasm, spec.body.shape, false));
       return {
         id,
         studs,

@@ -21,7 +21,7 @@ const parameters = (followDelay?: number) => (followDelay ? { marbleCount: 2 as 
 
 describe('gallery', () => {
   it('holds assemblies with distinct names', () => {
-    expect(GALLERY.length).toBeGreaterThanOrEqual(32);
+    expect(GALLERY.length).toBeGreaterThanOrEqual(33);
     expect(new Set(GALLERY.map((item) => item.id)).size).toBe(GALLERY.length);
   });
 

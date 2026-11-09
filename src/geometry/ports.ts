@@ -10,11 +10,14 @@ export type VerticalPort = `${'U' | 'D'}.0`;
 export type Port = SidePort | VerticalPort;
 export type Vec3 = [number, number, number];
 
-export const SHAPES = ['box', 'cylinder', 'halfCylinder', 'arch', 'roof', 'leanRamp', 'seesaw'] as const;
+export const SHAPES = ['box', 'cylinder', 'halfCylinder', 'arch', 'roof', 'leanRamp', 'seesaw', 'pendulum'] as const;
 export type Shape = (typeof SHAPES)[number];
 
 /** Shapes with their own fixed design, which come from the library and are not edited. */
-export const isSpecialShape = (shape: Shape) => shape === 'leanRamp' || shape === 'seesaw';
+export const isSpecialShape = (shape: Shape) => shape === 'leanRamp' || shape === 'seesaw' || shape === 'pendulum';
+
+/** Shapes printed as a frame and a separate part that moves in it. */
+export const hasMovingPart = (shape: Shape) => shape === 'seesaw' || shape === 'pendulum';
 
 export interface Body {
   shape: Shape;
@@ -24,7 +27,7 @@ export interface Body {
 
 /** How a channel's height changes along its length. */
 /** `release` leaves a seat at the top of the piece: level at first, then falling to the side port. */
-export type Profile = 'flat' | 'linear' | 'wave' | 'release';
+export type Profile = 'flat' | 'linear' | 'wave' | 'release' | 'climb';
 
 export interface Channel {
   from: Port;
@@ -167,12 +170,12 @@ export function channel(from: Port, to: Port, body: Body = UNIT_BODY, options: C
     from,
     to,
     section: options.section ?? defaultSection(from, to, body),
-    profile: changesHeight ? (options.profile === 'wave' ? 'wave' : 'linear') : 'flat',
+    profile: changesHeight ? (options.profile === 'wave' || options.profile === 'climb' ? options.profile : 'linear') : 'flat',
   };
 }
 
 /** How many separate solids a piece is made of when assembled. */
-export const expectedSolids = (spec: PieceSpec) => (spec.body.shape === 'seesaw' ? 2 : 1);
+export const expectedSolids = (spec: PieceSpec) => (hasMovingPart(spec.body.shape) ? 2 : 1);
 
 export function boxPiece(channels: Channel[], size: Body['size'] = [1, 1, 1], cavities: Cavity[] = []): PieceSpec {
   return { body: { shape: 'box', size }, channels, cavities };

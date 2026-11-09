@@ -272,7 +272,7 @@ function sizeOptions(values: number[], selected: number): string {
 }
 
 function renderBodyEditor(body: Body): string {
-  if (isSpecialShape(body.shape)) return `<h2>${t('body')}</h2><p class="hint">${t(body.shape === 'seesaw' ? 'specialSeesaw' : 'specialLean')}</p>`;
+  if (isSpecialShape(body.shape)) return `<h2>${t('body')}</h2><p class="hint">${t(body.shape === 'seesaw' ? 'specialSeesaw' : body.shape === 'pendulum' ? 'specialPendulum' : 'specialLean')}</p>`;
   const [x, y, z] = body.size;
   const shapes = SHAPES.filter((s) => !isSpecialShape(s)).map((s) => `<option value="${s}"${s === body.shape ? ' selected' : ''}>${t(SHAPE_LABELS[s])}</option>`).join('');
   return `

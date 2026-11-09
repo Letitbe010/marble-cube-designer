@@ -3,9 +3,9 @@ import { buildBody } from './body';
 import { buildCavityCutters, type Sweep } from './cavities';
 import { boreRadius, CONFIG, ROOF_PEAK_FACTOR } from './config';
 import { addStuds, cutPockets, type StudReport } from './locators';
-import { buildSeesawArm, seesawRestTilt } from './moving';
+import { buildMovingPart } from './moving';
 import { channelPath } from './paths';
-import type { PieceSpec, Vec3 } from './ports';
+import { hasMovingPart, type PieceSpec, type Vec3 } from './ports';
 
 export interface BuildResult {
   /** Three coordinates per vertex. */
@@ -107,8 +107,8 @@ export function buildReportedSolid(wasm: ManifoldToplevel, spec: PieceSpec, opti
       studs = added.report;
     }
 
-    if (spec.body.shape === 'seesaw' && !options.omitMoving) {
-      const arm = keep(buildSeesawArm(wasm, seesawRestTilt()));
+    if (hasMovingPart(spec.body.shape) && !options.omitMoving) {
+      const arm = keep(buildMovingPart(wasm, spec.body.shape, true));
       solid = keep(Manifold.union([solid, arm]));
     }
 
