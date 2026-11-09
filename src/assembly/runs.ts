@@ -29,6 +29,8 @@ export interface Run {
   path: Vec3[];
   /** True when the run is open from above, so a falling ball can land in it. */
   open: boolean;
+  /** True when walls keep the ball in on bends, as in a tunnel or a spiral. */
+  guarded: boolean;
 }
 
 export interface RunGraph {
@@ -67,8 +69,8 @@ function fitPath(path: Vec3[], first: Vec3, last: Vec3): Vec3[] {
 
 type EndSpec = { position: Vec3; dir: [number, number] | null; vertical: 'U' | 'D' | null };
 
-function makeRun(piece: PlacedPiece, ends: [EndSpec, EndSpec], flow: Flow, path: Vec3[], open: boolean): Run {
-  const run = { piece, flow, open } as Run;
+function makeRun(piece: PlacedPiece, ends: [EndSpec, EndSpec], flow: Flow, path: Vec3[], open: boolean, guarded: boolean): Run {
+  const run = { piece, flow, open, guarded } as Run;
   run.ends = ends.map((end, index) => ({
     run,
     index,
@@ -88,9 +90,10 @@ function runsOf(piece: PlacedPiece): Run[] {
     return { position, dir: FACE_DIR[parseSide(port).face], vertical: null };
   };
 
+  const open = (c: Channel) => c.section === 'groove' || c.section === 'slot';
   const runs = channels.map((c) => {
     const [a, b] = [describe(c.from), describe(c.to)];
-    return makeRun(piece, [a, b], initialFlow(c, a.position[2], b.position[2]), channelPath(c, body), c.section === 'groove' || c.section === 'slot');
+    return makeRun(piece, [a, b], initialFlow(c, a.position[2], b.position[2]), channelPath(c, body), open(c), !open(c));
   });
 
   if (cavities.some((c) => c.type === 'spiral')) {
@@ -107,6 +110,7 @@ function runsOf(piece: PlacedPiece): Run[] {
         ],
         'forward',
         [...path, exit],
+        true,
         true,
       ),
     );

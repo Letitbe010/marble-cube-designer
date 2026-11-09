@@ -2,9 +2,16 @@ import type { Assembly } from '../assembly/model';
 import { buildRunGraph, facing, isEntry, isExit, landingDrop, MAX_DROP, projectOnPath, type End, type Run, type RunGraph } from '../assembly/runs';
 import type { Vec3 } from '../geometry/ports';
 
+/** Every value is an assumption until measured on printed pieces (PLAN-3, section 5.3). */
 export interface SimParams {
-  /** Rolling resistance coefficient; an assumption until measured on printed pieces. */
+  /** Rolling resistance coefficient. */
   crr: number;
+  /** Share of the speed kept when crossing a joint between pieces. */
+  jointRetention: number;
+  /** Share of the speed kept when landing after a fall. */
+  jumpRetention: number;
+  /** Lean angle in an open curve, in degrees, beyond which the marble leaves the channel. */
+  maxLean: number;
   /** Fixed time step, in seconds, so that every run gives the same result. */
   dt: number;
   /** Gravity, in mm/s². */
@@ -15,9 +22,19 @@ export interface SimParams {
   startSpeed: number;
 }
 
-export const DEFAULT_PARAMS: SimParams = { crr: 0.02, dt: 0.001, gravity: 9810, timeLimit: 120, startSpeed: 0 };
+export const DEFAULT_PARAMS: SimParams = {
+  crr: 0.02,
+  jointRetention: 0.95,
+  jumpRetention: 0.7,
+  maxLean: 60,
+  dt: 0.001,
+  gravity: 9810,
+  timeLimit: 120,
+  startSpeed: 0,
+};
 
-export type Outcome = 'end' | 'stopped' | 'timeout';
+/** `finished`: the marble came to rest at a stop or left through a hole onto the table. */
+export type Outcome = 'finished' | 'stopped' | 'derailed' | 'noConnection' | 'timeout';
 
 export interface Sample {
   time: number;
@@ -43,13 +60,27 @@ const SAMPLE_INTERVAL = 0.01;
 
 const orientedPath = (run: Run): Vec3[] => (run.flow === 'backward' ? [...run.path].reverse() : run.path);
 const exitOf = (run: Run): End => run.ends[run.flow === 'forward' ? 1 : 0];
+const segmentLength = (a: Vec3, b: Vec3) => Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
 
 function direction(a: Vec3, b: Vec3): Vec3 {
-  const length = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) || 1;
+  const length = segmentLength(a, b) || 1;
   return [(b[0] - a[0]) / length, (b[1] - a[1]) / length, (b[2] - a[2]) / length];
 }
 
 const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+
+/** Radius of the horizontal circle through three points; infinite on a straight line. */
+function horizontalRadius(a: Vec3, b: Vec3, c: Vec3): number {
+  const area = Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]));
+  if (area < 1e-6) return Infinity;
+  const [ab, bc, ca] = [Math.hypot(a[0] - b[0], a[1] - b[1]), Math.hypot(b[0] - c[0], b[1] - c[1]), Math.hypot(c[0] - a[0], c[1] - a[1])];
+  return (ab * bc * ca) / (2 * area);
+}
+
+/** Curve radius at the start of each segment of a path. */
+function pathRadii(path: Vec3[]): number[] {
+  return path.slice(0, -1).map((_, i) => (i === 0 ? Infinity : horizontalRadius(path[i - 1], path[i], path[i + 1])));
+}
 
 interface Step {
   run: Run;
@@ -61,7 +92,7 @@ interface Step {
   drop: number;
 }
 
-/** Picks the continuation that keeps the marble going most nearly straight. */
+/** Picks the continuation with the smallest fall, then the one that goes most nearly straight. */
 function straightest(options: Step[], heading: Vec3): Step | null {
   if (options.length === 0) return null;
   const score = (step: Step) => {
@@ -90,8 +121,7 @@ function nextStep(run: Run, graph: RunGraph): Step | null {
         if (!other.flow) other.flow = 'forward';
         const points = orientedPath(other);
         const { index, t } = projectOnPath([x, y, z], points);
-        const [a, b] = [points[index], points[index + 1]];
-        return { run: other, from: index, along: t * Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]), drop: landingDrop([x, y, z], other) as number };
+        return { run: other, from: index, along: t * segmentLength(points[index], points[index + 1]), drop: landingDrop([x, y, z], other) as number };
       }),
       heading,
     );
@@ -118,13 +148,22 @@ export function findStarts(graph: RunGraph): Run[] {
   return graph.runs.filter((run) => run.flow && !fed.has(run)).sort((a, b) => top(b) - top(a));
 }
 
+/** How a track ends when nothing follows: a stop or the table is an arrival, anything else a gap. */
+function endOfTrack(run: Run): Outcome {
+  const exit = exitOf(run);
+  if (exit.vertical === 'U') return 'finished';
+  return exit.vertical === 'D' && exit.position[2] === 0 ? 'finished' : 'noConnection';
+}
+
 /** Rolls one marble from a starting path to wherever it ends up. */
 function roll(start: Run, graph: RunGraph, params: SimParams): MarbleResult {
-  const { crr, dt, gravity, timeLimit, startSpeed } = params;
+  const { crr, dt, gravity, timeLimit, startSpeed, jointRetention, jumpRetention, maxLean } = params;
+  const leanLimit = Math.tan((maxLean * Math.PI) / 180);
   const samples: Sample[] = [];
-  const pieceIds: string[] = [];
+  const pieceIds: string[] = [start.piece.id];
   let run = start;
   let path = orientedPath(run);
+  let radii = pathRadii(path);
   let index = 0;
   let along = 0;
   let speed = startSpeed;
@@ -134,8 +173,8 @@ function roll(start: Run, graph: RunGraph, params: SimParams): MarbleResult {
 
   const position = (): Vec3 => {
     const [a, b] = [path[index], path[index + 1]];
-    const length = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
-    const t = length === 0 ? 0 : along / length;
+    const length = segmentLength(a, b);
+    const t = length === 0 ? 0 : Math.min(1, along / length);
     return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
   };
   const finish = (outcome: Outcome): MarbleResult => {
@@ -144,7 +183,37 @@ function roll(start: Run, graph: RunGraph, params: SimParams): MarbleResult {
     return { outcome, time, maxSpeed, finalSpeed: speed, position: at, pieceIds, samples };
   };
 
-  pieceIds.push(run.piece.id);
+  /** Follows the parabola of a fall, then returns how far along the next path the marble lands. */
+  const fly = (exitPoint: Vec3, heading: Vec3, drop: number): number => {
+    const down = Math.max(0, -heading[2] * speed);
+    const flat = Math.hypot(heading[0], heading[1]) * speed;
+    const duration = (-down + Math.sqrt(down * down + 2 * gravity * drop)) / gravity;
+    const unit = Math.hypot(heading[0], heading[1]) || 1;
+    for (let t = SAMPLE_INTERVAL; t < duration; t += SAMPLE_INTERVAL) {
+      const fallen = down * t + 0.5 * gravity * t * t;
+      samples.push({
+        time: time + t,
+        position: [exitPoint[0] + (heading[0] / unit) * flat * t, exitPoint[1] + (heading[1] / unit) * flat * t, exitPoint[2] - fallen],
+        speed: Math.hypot(flat, down + gravity * t),
+      });
+    }
+    time += duration;
+    nextSample = time;
+    const impact = Math.sqrt(speed * speed + 2 * gravity * drop);
+    maxSpeed = Math.max(maxSpeed, impact);
+    speed = impact * jumpRetention;
+    return flat * duration;
+  };
+
+  /** Moves along the current path, stopping at its last point. */
+  const advance = (distance: number) => {
+    along += distance;
+    while (along >= segmentLength(path[index], path[index + 1]) && index + 2 < path.length) {
+      along -= segmentLength(path[index], path[index + 1]);
+      index += 1;
+    }
+  };
+
   for (;;) {
     if (time >= nextSample) {
       samples.push({ time, position: position(), speed });
@@ -153,7 +222,7 @@ function roll(start: Run, graph: RunGraph, params: SimParams): MarbleResult {
     if (time >= timeLimit) return finish('timeout');
 
     const [a, b] = [path[index], path[index + 1]];
-    const length = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+    const length = segmentLength(a, b);
     const sine = length === 0 ? 0 : (a[2] - b[2]) / length;
     const cosine = Math.sqrt(Math.max(0, 1 - sine * sine));
     const acceleration = sine >= FREE_FALL_SINE ? gravity * sine : ROLLING_FACTOR * gravity * (sine - crr * cosine);
@@ -164,27 +233,36 @@ function roll(start: Run, graph: RunGraph, params: SimParams): MarbleResult {
       return finish('stopped');
     }
     maxSpeed = Math.max(maxSpeed, speed);
+
+    if (!run.guarded && (speed * speed) / (radii[index] * gravity) > leanLimit) return finish('derailed');
+
     along += speed * dt;
     time += dt;
 
-    while (along >= Math.hypot(path[index + 1][0] - path[index][0], path[index + 1][1] - path[index][1], path[index + 1][2] - path[index][2])) {
-      along -= Math.hypot(path[index + 1][0] - path[index][0], path[index + 1][1] - path[index][1], path[index + 1][2] - path[index][2]);
+    while (along >= segmentLength(path[index], path[index + 1])) {
       if (index + 2 < path.length) {
+        along -= segmentLength(path[index], path[index + 1]);
         index += 1;
         continue;
       }
       const next = nextStep(run, graph);
       if (!next) {
-        along = Math.hypot(path[index + 1][0] - path[index][0], path[index + 1][1] - path[index][1], path[index + 1][2] - path[index][2]);
-        return finish('end');
+        along = segmentLength(path[index], path[index + 1]);
+        return finish(endOfTrack(run));
       }
-      // A fall gains the speed of free fall; S2 replaces this with a proper jump.
-      speed = Math.sqrt(speed * speed + 2 * gravity * next.drop);
-      maxSpeed = Math.max(maxSpeed, speed);
+
+      const exitPoint = path[path.length - 1];
+      const heading = direction(path[path.length - 2], exitPoint);
+      const changesPiece = next.run.piece !== run.piece;
+      const flight = next.drop > 0 ? fly(exitPoint, heading, next.drop) : 0;
+      if (next.drop === 0 && changesPiece) speed *= jointRetention;
+
       run = next.run;
       path = orientedPath(run);
+      radii = pathRadii(path);
       index = next.from;
       along = next.along;
+      advance(flight);
       if (pieceIds[pieceIds.length - 1] !== run.piece.id) pieceIds.push(run.piece.id);
     }
   }
