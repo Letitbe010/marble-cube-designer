@@ -165,6 +165,8 @@ Pauso bakoitza amaitzean aplikazioa funtzionamenduan egongo da eta GitHub-en arg
 
 **8. pausoan erabakitakoa (2026-11-09):** arrapala askeak 1:2 maldakoak dira, ertza 25 mm-ko saretan geratzeko (2 unitate, 75 mm-ko altuera; 3 unitate, 100 mm-ko altuera). Etzanda inprimatzen dira, eta ez dute kanalean geruza-eskailerarik. Balantzina goitik erortzen den kanika jasotzen duen bi noranzkoko etengailua da (1 × 3 × 1); oinarria eta besoa bereizita inprimatzen dira, eta 1,75 mm-ko filamentua da ardatza. Simulazioan bide finko bat da: besoaren mugimendua ez da kalkulatzen, eta txandakatzea ez dago simulatuta.
 
+**9. pausoaren egoera (2026-11-09):** proba-kita, Kalibrazioa fitxa eta [KALIBRAZIOA.md](KALIBRAZIOA.md) gida prest daude. Inprimatze-probak eta S5 erabiltzailearen inprimagailuaren zain daude.
+
 Azken pausoa **11. Kanika-igogailua** da (2.9): 9. eta 10. pausoen ondoren.
 
 Pistaren editorea (6) kanal bikoitzen aurretik doa, proiektuaren helburu nagusia delako eta bikoitzak gero portu-eredua zabalduz gehitzen direlako. Bikoitzek ez dute 1. pausoko eredua aldatzen behartuko, portuek hasieratik `lane` eremua izango dutelako (0 balioarekin).

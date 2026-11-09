@@ -14,7 +14,12 @@ import { loadManifold } from './geometry/wasm';
 import { LANGS, portName, SHAPE_LABELS, translate, type Lang, type StringKey } from './ui/i18n';
 import { AssemblyController } from './ui/assemblyController';
 import { SimulationController } from './ui/simulationController';
+import { applyStoredCalibration } from './geometry/calibration';
+import { exportCalibrationKit } from './geometry/kit';
+import { CalibrationPanel } from './ui/calibrationPanel';
 import { Viewer } from './ui/viewer';
+
+applyStoredCalibration();
 
 const STORAGE_KEY = 'marble-cube-designer';
 
@@ -60,7 +65,7 @@ const saved = load();
 const state = {
   lang: saved.lang,
   spec: saved.spec,
-  tab: 'piece' as 'piece' | 'assembly' | 'simulation',
+  tab: 'piece' as 'piece' | 'assembly' | 'simulation' | 'calibration',
   picked: null as Port | null,
   from: 'N.T.0' as Port,
   to: 'S.T.0' as Port,
@@ -339,6 +344,12 @@ function renderChannelEditor(spec: PieceSpec, ports: Port[], notices: string): s
     ${notices}`;
 }
 
+async function downloadCalibrationKit() {
+  if (wasm) download(await exportCalibrationKit(wasm), 'calibration-kit.zip', ZIP_TYPE);
+}
+
+const calibrationPanel = new CalibrationPanel({ t, onChange: () => render(), downloadKit: () => void downloadCalibrationKit(), ready: () => wasm !== null });
+
 function switchTab(next: typeof state.tab) {
   if (state.tab === 'simulation') simulation?.leave();
   state.tab = next;
@@ -354,19 +365,20 @@ function renderHeader(): string {
       <h1>Marble Cube Designer</h1>
       <div class="lang">${LANGS.map((l) => `<button data-lang="${l}" class="${l === state.lang ? 'active' : ''}">${l.toUpperCase()}</button>`).join('')}</div>
     </header>
-    <nav class="tabs">${tab('piece', 'tabPiece')}${tab('assembly', 'tabAssembly')}${tab('simulation', 'tabSimulation')}</nav>`;
+    <nav class="tabs">${tab('piece', 'tabPiece')}${tab('assembly', 'tabAssembly')}${tab('simulation', 'tabSimulation')}${tab('calibration', 'tabCalibration')}</nav>`;
 }
 
 function showTab() {
-  document.querySelector<HTMLElement>('#viewport')!.hidden = state.tab !== 'piece';
-  document.querySelector<HTMLElement>('#assemblyViewport')!.hidden = state.tab === 'piece';
+  const usesAssemblyView = state.tab === 'assembly' || state.tab === 'simulation';
+  document.querySelector<HTMLElement>('#viewport')!.hidden = usesAssemblyView;
+  document.querySelector<HTMLElement>('#assemblyViewport')!.hidden = !usesAssemblyView;
 }
 
 function render() {
   document.documentElement.lang = state.lang;
   showTab();
   if (state.tab !== 'piece') {
-    const body = state.tab === 'assembly' ? assembly?.render() : simulation?.render();
+    const body = state.tab === 'assembly' ? assembly?.render() : state.tab === 'simulation' ? simulation?.render() : calibrationPanel.render();
     panel.innerHTML = `${renderHeader()}${body ?? `<p class="stats">${t('loading')}</p>`}<footer>${t('disclaimer')}</footer>`;
     return;
   }
@@ -435,6 +447,8 @@ panel.addEventListener('click', (event) => {
     assembly?.handleClick(target);
   } else if (state.tab === 'simulation') {
     simulation?.handleClick(target);
+  } else if (state.tab === 'calibration') {
+    calibrationPanel.handleClick(target);
   } else if (preset) {
     setSpec(PRESETS[preset]);
   } else if (remove !== undefined) {
@@ -484,6 +498,10 @@ panel.addEventListener('change', (event) => {
   }
   if (state.tab === 'simulation') {
     simulation?.handleChange(target);
+    return;
+  }
+  if (state.tab === 'calibration') {
+    calibrationPanel.handleChange(target);
     return;
   }
   const { body } = state.spec;
