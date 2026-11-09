@@ -3,11 +3,12 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { boreRadius, checkLevels, CONFIG } from './config';
 import { channelPath } from './paths';
 import { buildPiece } from './piece';
-import { ALL_PORTS, boxPiece, channel, isVertical, parseSide, portPosition, portsFor, UNIT_BODY, type Port, type Shape } from './ports';
+import { ALL_PORTS, boxPiece, channel, isVertical, parseSide, portPosition, portsFor, UNIT_BODY, type Body, type Port, type Shape } from './ports';
 import { CALIBRATION, CALIBRATION_THICKNESS, PRESETS } from './presets';
 import { toBinaryStl } from './stl';
-import { validateDesign } from './validate';
+import { adaptChannels, validateDesign } from './validate';
 
+const LOW_BODY: Body = { shape: 'box', size: [1, 1, 0.5] };
 let wasm: ManifoldToplevel;
 const fullVolume = CONFIG.cubeSize * (CONFIG.cubeSize - CONFIG.fitClearance) ** 2;
 
@@ -49,7 +50,43 @@ describe('channel sections', () => {
     expect(channel('N.T.0', 'U.0').section).toBe('groove');
     expect(channel('N.M.0', 'S.M.0').section).toBe('tunnel');
     expect(channel('E.B.0', 'W.B.0').section).toBe('underside');
-    expect(channel('N.T.0', 'S.M.0').section).toBe('tunnel');
+    expect(channel('N.T.0', 'S.M.0').section).toBe('slot');
+    expect(channel('N.M.0', 'S.B.0').section).toBe('tunnel');
+  });
+
+  it('only ramps channels whose ends differ in height', () => {
+    expect(channel('N.T.0', 'S.T.0', UNIT_BODY, { profile: 'wave' }).profile).toBe('flat');
+    expect(channel('N.T.0', 'S.M.0').profile).toBe('linear');
+    expect(channel('N.T.0', 'S.M.0', UNIT_BODY, { profile: 'wave' }).profile).toBe('wave');
+  });
+
+  it('forces an open section at the middle level of a low piece', () => {
+    expect(channel('N.M.0', 'S.M.0', LOW_BODY).section).toBe('slot');
+  });
+});
+
+describe('profiles', () => {
+  const heights = (spec: { body: typeof UNIT_BODY; channels: ReturnType<typeof channel>[] }) =>
+    channelPath(spec.channels[0], spec.body).map((p) => p[2]);
+
+  it('descends from the top level to the middle level', () => {
+    const z = heights(PRESETS.rampStraight);
+    expect(z[0]).toBe(50);
+    expect(z[z.length - 1]).toBe(25);
+  });
+
+  it('never climbs on the way down', () => {
+    for (const name of ['rampStraight', 'rampLow', 'rampCurve', 'rampLong3', 'waveLong3']) {
+      const z = heights(PRESETS[name]);
+      z.slice(1).forEach((value, i) => expect(value, name).toBeLessThanOrEqual(z[i] + 1e-9));
+    }
+  });
+
+  it('makes a long wave differ from a straight line', () => {
+    const wave = heights(PRESETS.waveLong3);
+    const line = heights(PRESETS.rampLong3);
+    const gap = Math.max(...wave.map((z, i) => Math.abs(z - line[i])));
+    expect(gap).toBeGreaterThan(0.5);
   });
 });
 
@@ -168,10 +205,21 @@ describe('bodies', () => {
     expect(portsFor({ shape: 'box', size: [2, 2, 1] })).toEqual([]);
   });
 
-  it('offers no tunnel on half-height pieces', () => {
-    const ports = portsFor({ shape: 'box', size: [1, 1, 0.5] });
-    expect(ports.some((p) => p.includes('.M.'))).toBe(false);
-    expect(ports).toContain('N.T.0');
+  it('allows only open channels at the middle level of low pieces', () => {
+    expect(portPosition('N.M.0', LOW_BODY)[2]).toBe(12.5);
+    const tunnel = channel('N.M.0', 'S.M.0', LOW_BODY, { section: 'tunnel' });
+    expect(validateDesign({ body: LOW_BODY, channels: [tunnel] })[0].code).toBe('badSection');
+    expect(validateDesign({ body: LOW_BODY, channels: [channel('N.M.0', 'S.M.0', LOW_BODY)] })).toEqual([]);
+  });
+
+  it('rejects an open section that has no clear way up', () => {
+    const slot = channel('N.B.0', 'S.B.0', UNIT_BODY, { section: 'slot' });
+    expect(validateDesign(boxPiece([slot]))[0].code).toBe('badSection');
+  });
+
+  it('refits channels when a piece gets lower', () => {
+    const tunnel = channel('N.M.0', 'S.M.0');
+    expect(adaptChannels([tunnel], LOW_BODY)[0].section).toBe('slot');
   });
 
   it('offers no ports on structural shapes', () => {

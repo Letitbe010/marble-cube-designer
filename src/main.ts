@@ -4,7 +4,8 @@ import { buildPiece, type BuildResult } from './geometry/piece';
 import { channel, normalizeBody, portsFor, SHAPES, UNIT_BODY, type Body, type Channel, type PieceSpec, type Port, type Shape } from './geometry/ports';
 import { CALIBRATION, CALIBRATION_THICKNESS, LIBRARY, PRESETS } from './geometry/presets';
 import { toBinaryStl } from './geometry/stl';
-import { validateDesign, type IssueCode } from './geometry/validate';
+import { adaptChannels, validateDesign, type IssueCode } from './geometry/validate';
+import type { Section } from './geometry/config';
 import { loadManifold } from './geometry/wasm';
 import { LANGS, portName, translate, type Lang, type StringKey } from './ui/i18n';
 import { Viewer } from './ui/viewer';
@@ -20,6 +21,16 @@ const SHAPE_LABELS: Record<Shape, StringKey> = {
   halfCylinder: 'shapeHalfCylinder',
   arch: 'shapeArch',
   roof: 'shapeRoof',
+};
+
+type SectionChoice = 'auto' | 'slot' | 'tunnel';
+type ProfileChoice = 'linear' | 'wave';
+
+const SECTION_LABELS: Record<Section, StringKey> = {
+  groove: 'sectionGroove',
+  slot: 'sectionSlot',
+  tunnel: 'sectionTunnel',
+  underside: 'sectionUnderside',
 };
 
 interface Saved {
@@ -43,12 +54,11 @@ function load(): Saved {
     const data = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
     if (!data) return fallback;
     const body = loadBody(data.spec?.body);
-    const available = portsFor(body);
-    const stored = (data.spec?.channels ?? data.channels ?? data.segments) as { from: string; to: string }[];
-    const channels = stored
-      .map((s) => ({ from: migratePort(s.from), to: migratePort(s.to) }))
-      .filter((s) => available.includes(s.from) && available.includes(s.to))
-      .map((s) => channel(s.from, s.to));
+    const stored = (data.spec?.channels ?? data.channels ?? data.segments) as (Partial<Channel> & { from: string; to: string })[];
+    const channels = adaptChannels(
+      stored.map((s) => ({ ...s, from: migratePort(s.from), to: migratePort(s.to) }) as Channel),
+      body,
+    );
     const lang = LANGS.includes(data.lang) ? (data.lang as Lang) : fallback.lang;
     return { lang, spec: { body, channels } };
   } catch {
@@ -63,6 +73,8 @@ const state = {
   picked: null as Port | null,
   from: 'N.T.0' as Port,
   to: 'S.T.0' as Port,
+  section: 'auto' as SectionChoice,
+  profile: 'linear' as ProfileChoice,
   seeThrough: false,
   rejected: null as IssueCode | null,
   buildFailed: false,
@@ -122,11 +134,15 @@ const setChannels = (channels: Channel[]) => setSpec({ body: state.spec.body, ch
 
 function setBody(next: Body) {
   const body = normalizeBody(next);
-  const available = portsFor(body);
-  const channels = state.spec.channels
-    .filter((c) => available.includes(c.from) && available.includes(c.to))
-    .map((c) => channel(c.from, c.to));
-  setSpec({ body, channels });
+  setSpec({ body, channels: adaptChannels(state.spec.channels, body) });
+}
+
+/** Builds a channel using the section and profile chosen in the editor. */
+function newChannel(from: Port, to: Port): Channel {
+  return channel(from, to, state.spec.body, {
+    section: state.section === 'auto' ? undefined : state.section,
+    profile: state.profile,
+  });
 }
 
 function addChannel(added: Channel) {
@@ -147,7 +163,7 @@ function onPortClick(port: Port) {
     const from = state.picked;
     state.picked = null;
     viewer?.setSelected(null);
-    addChannel(channel(from, port));
+    addChannel(newChannel(from, port));
     return;
   }
   viewer?.setSelected(state.picked);
@@ -206,11 +222,22 @@ function renderChannelEditor(spec: PieceSpec, ports: Port[], notices: string): s
       <select id="to" aria-label="to">${portOptions(state.to, ports)}</select>
       <button class="btn" id="add">${t('add')}</button>
     </div>
+    <div class="params two">
+      <label>${t('section')}<select id="section">
+        <option value="auto"${state.section === 'auto' ? ' selected' : ''}>${t('sectionAuto')}</option>
+        <option value="slot"${state.section === 'slot' ? ' selected' : ''}>${t('sectionSlot')}</option>
+        <option value="tunnel"${state.section === 'tunnel' ? ' selected' : ''}>${t('sectionTunnel')}</option>
+      </select></label>
+      <label>${t('profile')}<select id="profile">
+        <option value="linear"${state.profile === 'linear' ? ' selected' : ''}>${t('profileLinear')}</option>
+        <option value="wave"${state.profile === 'wave' ? ' selected' : ''}>${t('profileWave')}</option>
+      </select></label>
+    </div>
 
     <h2>${t('segments')}</h2>
     ${spec.channels.length === 0 ? `<p class="empty">${t('empty')}</p>` : `
       <ul class="segments">
-        ${spec.channels.map((s, i) => `<li><span>${portName(state.lang, s.from)} → ${portName(state.lang, s.to)}</span><button data-remove="${i}" title="${t('remove')}" aria-label="${t('remove')}">×</button></li>`).join('')}
+        ${spec.channels.map((s, i) => `<li><span>${portName(state.lang, s.from)} → ${portName(state.lang, s.to)} <small>${t(SECTION_LABELS[s.section])}${s.profile === 'wave' ? ` · ${t('profileWave')}` : ''}</small></span><button data-remove="${i}" title="${t('remove')}" aria-label="${t('remove')}">×</button></li>`).join('')}
       </ul>
       <button class="btn wide" id="clear">${t('clear')}</button>`}
     ${notices}`;
@@ -272,7 +299,7 @@ panel.addEventListener('click', (event) => {
   } else if (remove !== undefined) {
     setChannels(state.spec.channels.filter((_, i) => i !== Number(remove)));
   } else if (target.id === 'add') {
-    addChannel(channel(state.from, state.to));
+    addChannel(newChannel(state.from, state.to));
   } else if (target.id === 'clear') {
     setChannels([]);
   } else if (target.id === 'export') {
@@ -289,6 +316,8 @@ panel.addEventListener('change', (event) => {
 
   if (target.id === 'from') state.from = target.value as Port;
   else if (target.id === 'to') state.to = target.value as Port;
+  else if (target.id === 'section') state.section = target.value as SectionChoice;
+  else if (target.id === 'profile') state.profile = target.value as ProfileChoice;
   else if (target.id === 'shape') setBody({ shape: target.value as Shape, size: [x, y, z] });
   else if (target.id === 'sizeX') setBody({ shape: body.shape, size: [Number(target.value), y, z] });
   else if (target.id === 'sizeY') setBody({ shape: body.shape, size: [x, Number(target.value), z] });

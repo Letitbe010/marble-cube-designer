@@ -1,6 +1,7 @@
 /** All physical dimensions, in millimetres. Tune these after printing the calibration piece. */
 
-export type Section = 'groove' | 'tunnel' | 'underside';
+/** A groove runs along the top of a piece; a slot is open to the top at any depth. */
+export type Section = 'groove' | 'slot' | 'tunnel' | 'underside';
 
 export interface Level {
   /** Height of the ball centre above the bottom of the piece. */

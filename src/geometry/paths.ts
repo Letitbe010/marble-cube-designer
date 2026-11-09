@@ -9,6 +9,7 @@ import {
   verticalKind,
   type Body,
   type Channel,
+  type Profile,
   type SidePort,
   type Vec3,
   type VerticalPort,
@@ -17,9 +18,13 @@ import {
 /** How far paths continue past the piece surface, so cuts open cleanly. */
 const OVERSHOOT = 1;
 
-const smoothstep = (t: number) => t * t * (3 - 2 * t);
+/** Height along a channel; a wave keeps descending, in one step per cell. */
+function heightAt(profile: Profile, from: number, to: number, t: number, cells: number): number {
+  const progress = profile === 'wave' ? t - Math.sin(2 * Math.PI * cells * t) / (2 * Math.PI * cells) : t;
+  return from + (to - from) * progress;
+}
 
-function sidePath(a: SidePort, b: SidePort, body: Body): Vec3[] {
+function sidePath(a: SidePort, b: SidePort, body: Body, profile: Profile): Vec3[] {
   const pa = portPosition(a, body);
   const pb = portPosition(b, body);
   const da = FACE_DIR[parseSide(a).face];
@@ -29,13 +34,14 @@ function sidePath(a: SidePort, b: SidePort, body: Body): Vec3[] {
 
   if (da[0] === -db[0] && da[1] === -db[1]) {
     // Opposite faces: straight run, ramping between levels if needed.
-    const n = pa[2] === pb[2] ? 1 : steps;
+    const cells = Math.max(1, Math.round(Math.hypot(pb[0] - pa[0], pb[1] - pa[1]) / CONFIG.cubeSize));
+    const n = profile === 'flat' ? 1 : steps * cells;
     for (let i = 0; i <= n; i++) {
       const t = i / n;
       points.push([
         pa[0] + (pb[0] - pa[0]) * t,
         pa[1] + (pb[1] - pa[1]) * t,
-        pa[2] + (pb[2] - pa[2]) * smoothstep(t),
+        heightAt(profile, pa[2], pb[2], t, cells),
       ]);
     }
   } else {
@@ -53,7 +59,7 @@ function sidePath(a: SidePort, b: SidePort, body: Body): Vec3[] {
       points.push([
         cx + half * Math.cos(angle),
         cy + half * Math.sin(angle),
-        pa[2] + (pb[2] - pa[2]) * smoothstep(t),
+        heightAt(profile, pa[2], pb[2], t, 1),
       ]);
     }
   }
@@ -74,7 +80,7 @@ function verticalPath(side: SidePort, port: VerticalPort, section: Channel['sect
   const at = (u: number, h: number): Vec3 => [half + dx * u, half + dy * u, h];
 
   // A groove or underside channel simply ends over the centre of the piece.
-  if (section !== 'tunnel') return [at(half + OVERSHOOT, z), at(half, z), at(0, z)];
+  if (section === 'groove' || section === 'underside') return [at(half + OVERSHOOT, z), at(half, z), at(0, z)];
 
   const up = verticalKind(port) === 'U';
   const direction = up ? 1 : -1;
@@ -91,7 +97,7 @@ function verticalPath(side: SidePort, port: VerticalPort, section: Channel['sect
 }
 
 /** Centre line of the ball through a channel. */
-export function channelPath({ from, to, section }: Channel, body: Body): Vec3[] {
+export function channelPath({ from, to, section, profile }: Channel, body: Body): Vec3[] {
   if (isVertical(from) && isVertical(to)) {
     const half = CONFIG.cubeSize / 2;
     return [
@@ -101,5 +107,5 @@ export function channelPath({ from, to, section }: Channel, body: Body): Vec3[] 
   }
   if (isVertical(from)) return verticalPath(to as SidePort, from, section, body);
   if (isVertical(to)) return verticalPath(from as SidePort, to, section, body);
-  return sidePath(from, to, body);
+  return sidePath(from, to, body, profile);
 }

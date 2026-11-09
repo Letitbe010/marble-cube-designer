@@ -17,10 +17,19 @@ export interface Body {
   size: [number, number, number];
 }
 
+/** How a channel's height changes along its length. */
+export type Profile = 'flat' | 'linear' | 'wave';
+
 export interface Channel {
   from: Port;
   to: Port;
   section: Section;
+  profile: Profile;
+}
+
+export interface ChannelOptions {
+  section?: Section;
+  profile?: Profile;
 }
 
 export interface PieceSpec {
@@ -59,9 +68,17 @@ export function parseSide(port: SidePort): { face: Face; level: LevelId } {
 
 export const bodyHeight = (body: Body) => body.size[2] * CONFIG.cubeSize;
 
-/** Ball-centre height of a level on a piece: the top groove follows the top of the piece. */
+/** True when a piece is too low to hold a closed tunnel. */
+export const isLowBody = (body: Body) => bodyHeight(body) < CONFIG.cubeSize;
+
+/**
+ * Ball-centre height of a level on a piece. The top groove follows the top of the piece,
+ * and on low pieces the middle level sits halfway up, where only an open slot fits.
+ */
 export function levelZ(level: LevelId, body: Body): number {
-  return level === 'T' ? bodyHeight(body) : CONFIG.levels[level].z;
+  if (level === 'T') return bodyHeight(body);
+  if (level === 'M' && isLowBody(body)) return bodyHeight(body) / 2;
+  return CONFIG.levels[level].z;
 }
 
 /**
@@ -71,11 +88,9 @@ export function levelZ(level: LevelId, body: Body): number {
 export function portsFor(body: Body): Port[] {
   if (body.shape !== 'box') return [];
   const [width, length] = body.size;
-  const tunnelFits = bodyHeight(body) >= CONFIG.cubeSize;
   return ALL_PORTS.filter((port) => {
     if (isVertical(port)) return width === 1 && length === 1;
-    const { face, level } = parseSide(port);
-    if (level === 'M' && !tunnelFits) return false;
+    const { face } = parseSide(port);
     return (face === 'N' || face === 'S' ? width : length) === 1;
   });
 }
@@ -94,10 +109,14 @@ export function channelKey(c: Pick<Channel, 'from' | 'to'>): string {
   return [c.from, c.to].sort().join('|');
 }
 
-function defaultSection(from: Port, to: Port): Section {
+function defaultSection(from: Port, to: Port, body: Body): Section {
   const sides = [from, to].filter((p): p is SidePort => !isVertical(p));
   const sections = sides.map((p) => CONFIG.levels[parseSide(p).level].section);
-  if (sections.length === 2) return sections[0] === sections[1] ? sections[0] : 'tunnel';
+  if (sections.length === 2) {
+    if (isLowBody(body) && sections.includes('tunnel')) return sections.includes('underside') ? 'tunnel' : 'slot';
+    if (sections[0] === sections[1]) return sections[0];
+    return sections.includes('groove') && sections.includes('tunnel') ? 'slot' : 'tunnel';
+  }
   if (sections.length === 0) return 'tunnel';
   const vertical = verticalKind([from, to].find(isVertical) as VerticalPort);
   if (vertical === 'U' && sections[0] === 'groove') return 'groove';
@@ -105,9 +124,16 @@ function defaultSection(from: Port, to: Port): Section {
   return 'tunnel';
 }
 
-/** Creates a channel with the section its ports imply. */
-export function channel(from: Port, to: Port): Channel {
-  return { from, to, section: defaultSection(from, to) };
+/** Creates a channel; anything not specified follows from its ports and body. */
+export function channel(from: Port, to: Port, body: Body = UNIT_BODY, options: ChannelOptions = {}): Channel {
+  const changesHeight =
+    !isVertical(from) && !isVertical(to) && levelZ(parseSide(from).level, body) !== levelZ(parseSide(to).level, body);
+  return {
+    from,
+    to,
+    section: options.section ?? defaultSection(from, to, body),
+    profile: changesHeight ? (options.profile === 'wave' ? 'wave' : 'linear') : 'flat',
+  };
 }
 
 export function boxPiece(channels: Channel[], size: Body['size'] = [1, 1, 1]): PieceSpec {

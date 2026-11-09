@@ -1,6 +1,11 @@
-import { boxPiece, channel as c, type PieceSpec, type Shape } from './ports';
+import { boxPiece, channel as c, type Body, type PieceSpec, type Shape } from './ports';
 
 const solid = (shape: Shape, size: [number, number, number]): PieceSpec => ({ body: { shape, size }, channels: [] });
+
+const box = (size: [number, number, number]): Body => ({ shape: 'box', size });
+const LOW = box([1, 1, 0.5]);
+const LONG2 = box([1, 2, 0.5]);
+const LONG3 = box([1, 3, 0.5]);
 
 export const PRESETS: Record<string, PieceSpec> = {
   cube: solid('box', [1, 1, 1]),
@@ -29,11 +34,21 @@ export const PRESETS: Record<string, PieceSpec> = {
   longGroove2: boxPiece([c('N.T.0', 'S.T.0')], [1, 2, 0.5]),
   longGroove3: boxPiece([c('N.T.0', 'S.T.0')], [1, 3, 0.5]),
   longTunnel2: boxPiece([c('N.M.0', 'S.M.0')], [1, 2, 1]),
+
+  rampStraight: boxPiece([c('N.T.0', 'S.M.0')]),
+  rampLow: boxPiece([c('N.T.0', 'S.M.0', LOW)], [1, 1, 0.5]),
+  rampCurve: boxPiece([c('N.T.0', 'E.M.0')]),
+  rampCurveLow: boxPiece([c('N.T.0', 'E.M.0', LOW)], [1, 1, 0.5]),
+  rampLong2: boxPiece([c('N.T.0', 'S.M.0', LONG2)], [1, 2, 0.5]),
+  rampLong3: boxPiece([c('N.T.0', 'S.M.0', LONG3)], [1, 3, 0.5]),
+  waveLong3: boxPiece([c('N.T.0', 'S.M.0', LONG3, { profile: 'wave' })], [1, 3, 0.5]),
+  tunnelRamp: boxPiece([c('N.T.0', 'S.M.0', box([1, 1, 1]), { section: 'tunnel' })]),
 };
 
-export const LIBRARY: { category: 'catBlocks' | 'catStructures' | 'catChannels' | 'catLow'; items: string[] }[] = [
+export const LIBRARY: { category: 'catBlocks' | 'catStructures' | 'catChannels' | 'catLow' | 'catRamps'; items: string[] }[] = [
   { category: 'catBlocks', items: ['cube', 'halfBlock', 'longBlock2', 'longBlock3', 'plate'] },
   { category: 'catChannels', items: ['straightTop', 'curveTop', 'crossTop', 'drop', 'straightTunnel', 'curveTunnel', 'topToTunnel', 'underside', 'double'] },
+  { category: 'catRamps', items: ['rampStraight', 'rampLow', 'rampCurve', 'rampCurveLow', 'rampLong2', 'rampLong3', 'waveLong3', 'tunnelRamp'] },
   { category: 'catLow', items: ['halfGroove', 'halfCurve', 'longGroove2', 'longGroove3', 'longTunnel2'] },
   { category: 'catStructures', items: ['cylinder', 'halfRound', 'arch', 'roof'] },
 ];

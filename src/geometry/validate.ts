@@ -1,8 +1,20 @@
 import { boreRadius, CONFIG } from './config';
 import { channelPath } from './paths';
-import { channelKey, isVertical, parseSide, type PieceSpec, type Vec3 } from './ports';
+import {
+  channel,
+  channelKey,
+  isLowBody,
+  isVertical,
+  parseSide,
+  portsFor,
+  type Body,
+  type Channel,
+  type PieceSpec,
+  type Port,
+  type Vec3,
+} from './ports';
 
-export type IssueCode = 'samePort' | 'sameFace' | 'duplicate' | 'thinWall';
+export type IssueCode = 'samePort' | 'sameFace' | 'duplicate' | 'badSection' | 'thinWall';
 
 export interface Issue {
   code: IssueCode;
@@ -41,7 +53,32 @@ function pathDistance(a: Vec3[], b: Vec3[]): number {
 
 const CROSSING_TOLERANCE = 1;
 
-/** Checks a design for impossible segments and walls too thin to print. */
+const levelOf = (port: Port) => (isVertical(port) ? null : parseSide(port).level);
+
+/** A slot needs a clear way up, and a closed tunnel needs a piece tall enough to hold it. */
+function sectionFits(c: Channel, body: Body): boolean {
+  const levels = [levelOf(c.from), levelOf(c.to)];
+  if (c.section === 'slot') return !levels.includes(null) && !levels.includes('B');
+  if (c.section === 'tunnel' && isLowBody(body)) return !levels.includes('M');
+  return true;
+}
+
+/** Refits channels to a body, keeping their section and profile where the body allows it. */
+export function adaptChannels(channels: Pick<Channel, 'from' | 'to' | 'section' | 'profile'>[], body: Body): Channel[] {
+  const available = portsFor(body);
+  const result: Channel[] = [];
+  for (const c of channels) {
+    if (!available.includes(c.from) || !available.includes(c.to)) continue;
+    const candidates = [channel(c.from, c.to, body, { section: c.section, profile: c.profile }), channel(c.from, c.to, body)];
+    const fit = candidates.find((candidate) =>
+      validateDesign({ body, channels: [...result, candidate] }).every((issue) => issue.code === 'thinWall'),
+    );
+    if (fit) result.push(fit);
+  }
+  return result;
+}
+
+/** Checks a design for impossible channels and walls too thin to print. */
 export function validateDesign({ body, channels }: PieceSpec): Issue[] {
   const issues: Issue[] = [];
   const seen = new Map<string, number>();
@@ -50,6 +87,8 @@ export function validateDesign({ body, channels }: PieceSpec): Issue[] {
     if (s.from === s.to) issues.push({ code: 'samePort', segments: [i] });
     else if (!isVertical(s.from) && !isVertical(s.to) && parseSide(s.from).face === parseSide(s.to).face) {
       issues.push({ code: 'sameFace', segments: [i] });
+    } else if (!sectionFits(s, body)) {
+      issues.push({ code: 'badSection', segments: [i] });
     }
     const key = channelKey(s);
     const previous = seen.get(key);

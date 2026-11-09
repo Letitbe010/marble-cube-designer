@@ -39,7 +39,7 @@ function buildCutters(wasm: ManifoldToplevel, spec: PieceSpec): Manifold[] {
     for (let i = 0; i < path.length - 1; i++) {
       const [a, b] = [path[i], path[i + 1]];
       const points = [...place(a), ...place(b)];
-      if (channel.section === 'groove') {
+      if (channel.section === 'groove' || channel.section === 'slot') {
         points.push(...place(a, SLOT_HEIGHT), ...place(b, SLOT_HEIGHT));
       } else {
         // Teardrop roof: closed bores print without supports at a 45 degree overhang.
