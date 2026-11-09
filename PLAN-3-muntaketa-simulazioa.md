@@ -48,7 +48,7 @@ interface Assembly { name: string; pieces: PlacedPiece[]; }
 
 ### 4.2 Editorearen funtzioak
 
-- Liburutegitik pieza bat aukeratu eta saretan jarri, aurrebista batekin.
+- Liburutegitik pieza bat aukeratu eskuineko paletan (irudi txikiekin, kategoriaka eta bilatzailearekin) eta saretan jarri, aurrebista batekin.
 - Biratu, mugitu, bikoiztu eta ezabatu; desegin eta berregin.
 - Muntaia JSON gisa gorde eta kargatu, eta nabigatzailean automatikoki gorde.
 - Pieza-zerrenda: pieza berdinak (biraketak barne) talde bakarrean, kantitatearekin.

@@ -372,6 +372,8 @@ function showTab() {
   const usesAssemblyView = state.tab === 'assembly' || state.tab === 'simulation';
   document.querySelector<HTMLElement>('#viewport')!.hidden = usesAssemblyView;
   document.querySelector<HTMLElement>('#assemblyViewport')!.hidden = !usesAssemblyView;
+  document.querySelector<HTMLElement>('#palette')!.hidden = state.tab !== 'assembly';
+  document.querySelector<HTMLElement>('#views')!.classList.toggle('with-palette', state.tab === 'assembly');
 }
 
 function render() {
@@ -548,6 +550,7 @@ loadManifold()
     assembly = new AssemblyController({
       wasm: instance,
       container: document.querySelector<HTMLElement>('#assemblyViewport')!,
+      paletteContainer: document.querySelector<HTMLElement>('#palette')!,
       t,
       currentSpec: () => state.spec,
       locators: () => state.locators,

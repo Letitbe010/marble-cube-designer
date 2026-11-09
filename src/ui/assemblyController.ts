@@ -30,19 +30,20 @@ import { buildBasePlate } from '../geometry/locators';
 import { toResult } from '../geometry/piece';
 import { buildPiece } from '../geometry/piece';
 import type { PieceSpec } from '../geometry/ports';
-import { LIBRARY, PRESETS } from '../geometry/presets';
+import { PRESETS } from '../geometry/presets';
 import { AssemblyView } from './assemblyView';
+import { CURRENT_PIECE, PiecePalette } from './piecePalette';
 import { evaluateAssembly, type Verdict } from '../simulation/evaluate';
 import { GALLERY_TEXT } from './galleryText';
 import { SHAPE_LABELS, type Lang, type StringKey } from './i18n';
 import { toFlatGeometry } from './viewer';
 
 const STORAGE_KEY = 'marble-cube-assembly';
-const CURRENT_PIECE = 'current';
 
 export interface AssemblyDeps {
   wasm: ManifoldToplevel;
   container: HTMLElement;
+  paletteContainer: HTMLElement;
   t: (key: StringKey, values?: Record<string, string>) => string;
   currentSpec: () => PieceSpec;
   locators: () => boolean;
@@ -67,6 +68,7 @@ export class AssemblyController {
   private readonly history = new History<Assembly>(loadSaved());
   private readonly geometries = new Map<string, BufferGeometry>();
   private readonly view: AssemblyView;
+  private readonly palette: PiecePalette;
   private selected: string | null = null;
   private brush: string | null = null;
   private brushRotation: Rotation = 0;
@@ -81,6 +83,12 @@ export class AssemblyController {
     this.view = new AssemblyView(deps.container, {
       onHover: (cell) => this.setHover(cell),
       onClick: (cell, pieceId) => this.onViewClick(cell, pieceId),
+    });
+    this.palette = new PiecePalette(deps.paletteContainer, {
+      wasm: deps.wasm,
+      t: deps.t,
+      currentSpec: deps.currentSpec,
+      onPick: (key) => this.setBrush(key),
     });
     this.syncView();
     this.frameAssembly();
@@ -115,6 +123,7 @@ export class AssemblyController {
   /** While another tab uses the shared view, the pointer must not edit the assembly. */
   setActive(active: boolean) {
     this.active = active;
+    if (active) this.palette.start();
     this.hover = null;
     this.syncGhost();
   }
@@ -362,8 +371,7 @@ export class AssemblyController {
     if (target.id === 'asmGallery') {
       this.galleryId = target.value;
       this.deps.onChange();
-    } else if (target.id === 'asmBrush') this.setBrush(target.value || null);
-    else if (target.id === 'asmFile') {
+    } else if (target.id === 'asmFile') {
       const file = (target as HTMLInputElement).files?.[0];
       if (file) void this.importFile(file);
     }
@@ -431,12 +439,8 @@ export class AssemblyController {
 
   render(): string {
     const { t } = this.deps;
+    this.palette.sync(this.brush);
     const button = (attr: string, label: string, enabled = true) => `<button class="btn" ${attr}${enabled ? '' : ' disabled'}>${label}</button>`;
-    const options = LIBRARY.map(
-      ({ category, items }) => `<optgroup label="${t(category)}">
-        ${items.map((key) => `<option value="${key}"${key === this.brush ? ' selected' : ''}>${t(key as StringKey)}</option>`).join('')}
-      </optgroup>`,
-    ).join('');
     const hasSelection = this.selected !== null;
     const piece = this.assembly.pieces.find((p) => p.id === this.selected);
 
@@ -446,16 +450,11 @@ export class AssemblyController {
       ${this.renderGallery()}
 
       <h2>${t('asmPlace')}</h2>
-      <select id="asmBrush" class="wide-select" aria-label="${t('asmPlace')}">
-        <option value="">${t('asmSelectTool')}</option>
-        <option value="${CURRENT_PIECE}"${this.brush === CURRENT_PIECE ? ' selected' : ''}>${t('asmCurrentPiece')}</option>
-        ${options}
-      </select>
-      ${this.brush ? `<p class="stats">${t('asmRotation')}: ${this.brushRotation}°</p>
+      ${this.brush ? `<p class="stats">${t(this.brush === CURRENT_PIECE ? 'asmCurrentPiece' : (this.brush as StringKey))} · ${t('asmRotation')}: ${this.brushRotation}°</p>
         <div class="presets files">
           ${button('data-asm="rotate"', t('asmRotate'))}
           ${button('data-asm="stopPlacing"', t('asmStop'))}
-        </div>` : ''}
+        </div>` : `<p class="empty">${t('palHint')}</p>`}
 
       <h2>${t('asmSelected')}</h2>
       ${piece ? `<p class="stats">${t('asmPosition')}: ${piece.cell.join(' · ')} · ${piece.rotation}°</p>` : `<p class="empty">${t('asmNoSelection')}</p>`}
