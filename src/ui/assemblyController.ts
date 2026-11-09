@@ -60,6 +60,7 @@ export class AssemblyController {
   private hover: Cell | null = null;
   private importFailed = false;
   private issues: CheckIssue[] = [];
+  private active = true;
 
   constructor(private readonly deps: AssemblyDeps) {
     this.view = new AssemblyView(deps.container, {
@@ -71,6 +72,21 @@ export class AssemblyController {
 
   private get assembly() {
     return this.history.value;
+  }
+
+  get current(): Assembly {
+    return this.history.value;
+  }
+
+  get sharedView(): AssemblyView {
+    return this.view;
+  }
+
+  /** While another tab uses the shared view, the pointer must not edit the assembly. */
+  setActive(active: boolean) {
+    this.active = active;
+    this.hover = null;
+    this.syncGhost();
   }
 
   private brushSpec(): PieceSpec | null {
@@ -132,11 +148,13 @@ export class AssemblyController {
   }
 
   private setHover(cell: Cell | null) {
+    if (!this.active) return;
     this.hover = cell;
     if (this.brush) this.syncGhost();
   }
 
   private onViewClick(cell: Cell | null, pieceId: string | null) {
+    if (!this.active) return;
     const spec = this.brushSpec();
     if (spec) {
       if (cell) this.commit(addPiece(this.assembly, spec, cell, this.brushRotation));

@@ -13,6 +13,7 @@ import { buildPrintParts, canSplit, pieceId } from './geometry/print';
 import { loadManifold } from './geometry/wasm';
 import { LANGS, portName, SHAPE_LABELS, translate, type Lang, type StringKey } from './ui/i18n';
 import { AssemblyController } from './ui/assemblyController';
+import { SimulationController } from './ui/simulationController';
 import { Viewer } from './ui/viewer';
 
 const STORAGE_KEY = 'marble-cube-designer';
@@ -55,7 +56,7 @@ const saved = load();
 const state = {
   lang: saved.lang,
   spec: saved.spec,
-  tab: 'piece' as 'piece' | 'assembly',
+  tab: 'piece' as 'piece' | 'assembly' | 'simulation',
   picked: null as Port | null,
   from: 'N.T.0' as Port,
   to: 'S.T.0' as Port,
@@ -79,6 +80,7 @@ const t = (key: StringKey, values?: Record<string, string>) => translate(state.l
 let wasm: ManifoldToplevel | null = null;
 let viewer: Viewer | null = null;
 let assembly: AssemblyController | null = null;
+let simulation: SimulationController | null = null;
 
 function persist() {
   try {
@@ -323,6 +325,14 @@ function renderChannelEditor(spec: PieceSpec, ports: Port[], notices: string): s
     ${notices}`;
 }
 
+function switchTab(next: typeof state.tab) {
+  if (state.tab === 'simulation') simulation?.leave();
+  state.tab = next;
+  assembly?.setActive(next === 'assembly');
+  if (next === 'simulation') simulation?.enter();
+  render();
+}
+
 function renderHeader(): string {
   const tab = (id: typeof state.tab, label: StringKey) => `<button class="tab${state.tab === id ? ' active' : ''}" data-tab="${id}">${t(label)}</button>`;
   return `
@@ -330,19 +340,20 @@ function renderHeader(): string {
       <h1>Marble Cube Designer</h1>
       <div class="lang">${LANGS.map((l) => `<button data-lang="${l}" class="${l === state.lang ? 'active' : ''}">${l.toUpperCase()}</button>`).join('')}</div>
     </header>
-    <nav class="tabs">${tab('piece', 'tabPiece')}${tab('assembly', 'tabAssembly')}</nav>`;
+    <nav class="tabs">${tab('piece', 'tabPiece')}${tab('assembly', 'tabAssembly')}${tab('simulation', 'tabSimulation')}</nav>`;
 }
 
 function showTab() {
   document.querySelector<HTMLElement>('#viewport')!.hidden = state.tab !== 'piece';
-  document.querySelector<HTMLElement>('#assemblyViewport')!.hidden = state.tab !== 'assembly';
+  document.querySelector<HTMLElement>('#assemblyViewport')!.hidden = state.tab === 'piece';
 }
 
 function render() {
   document.documentElement.lang = state.lang;
   showTab();
-  if (state.tab === 'assembly') {
-    panel.innerHTML = `${renderHeader()}${assembly ? assembly.render() : `<p class="stats">${t('loading')}</p>`}<footer>${t('disclaimer')}</footer>`;
+  if (state.tab !== 'piece') {
+    const body = state.tab === 'assembly' ? assembly?.render() : simulation?.render();
+    panel.innerHTML = `${renderHeader()}${body ?? `<p class="stats">${t('loading')}</p>`}<footer>${t('disclaimer')}</footer>`;
     return;
   }
   const { spec, result } = state;
@@ -399,14 +410,15 @@ panel.addEventListener('click', (event) => {
   const { lang, preset, remove, removeCavity, tab } = target.dataset;
 
   if (tab) {
-    state.tab = tab as typeof state.tab;
-    render();
+    switchTab(tab as typeof state.tab);
   } else if (lang) {
     state.lang = lang as Lang;
     persist();
     render();
   } else if (state.tab === 'assembly') {
     assembly?.handleClick(target);
+  } else if (state.tab === 'simulation') {
+    simulation?.handleClick(target);
   } else if (preset) {
     setSpec(PRESETS[preset]);
   } else if (remove !== undefined) {
@@ -436,6 +448,10 @@ panel.addEventListener('change', (event) => {
   const target = event.target as HTMLInputElement | HTMLSelectElement;
   if (state.tab === 'assembly') {
     assembly?.handleChange(target);
+    return;
+  }
+  if (state.tab === 'simulation') {
+    simulation?.handleChange(target);
     return;
   }
   const { body } = state.spec;
@@ -487,6 +503,8 @@ loadManifold()
       onChange: render,
       download,
     });
+    const shared = assembly;
+    simulation = new SimulationController({ view: shared.sharedView, assembly: () => shared.current, t, onChange: render });
   })
   .catch((error) => {
     console.error(error);

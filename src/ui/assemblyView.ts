@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GRID_SIZE, Z_STEP, type Cell } from '../assembly/model';
 import { CONFIG } from '../geometry/config';
+import type { Vec3 } from '../geometry/ports';
+import type { Sample } from '../simulation/marble';
 
 export interface ViewPiece {
   id: string;
@@ -19,6 +21,9 @@ export interface ViewEvents {
 }
 
 const WOOD = 0xd8b98a;
+const MARBLE_RADIUS = 8;
+const SLOW_HUE = 0.62;
+const FAST_HUE = 0;
 
 /** 3D view of an assembly on its grid. */
 export class AssemblyView {
@@ -32,6 +37,16 @@ export class AssemblyView {
   private readonly material = new THREE.MeshStandardMaterial({ color: WOOD, roughness: 0.75, flatShading: true });
   private readonly selectedMaterial = new THREE.MeshStandardMaterial({ color: 0xe6c79a, emissive: 0x1f5fbf, emissiveIntensity: 0.45, roughness: 0.75, flatShading: true });
   private readonly flaggedMaterial = new THREE.MeshStandardMaterial({ color: 0xe0a39a, emissive: 0xb3261e, emissiveIntensity: 0.35, roughness: 0.75, flatShading: true });
+  private readonly overlay = new THREE.Group();
+  private readonly marbleGeometry = new THREE.SphereGeometry(MARBLE_RADIUS, 24, 16);
+  private readonly marbleMaterial = new THREE.MeshStandardMaterial({ color: 0x1f5fbf, roughness: 0.15, metalness: 0.2 });
+  private readonly problemMaterial = new THREE.MeshBasicMaterial({ color: 0xb3261e, depthTest: false });
+  private readonly clock = new THREE.Clock();
+  private trails: THREE.Line[] = [];
+  private marbles: THREE.Mesh[] = [];
+  private problems: THREE.Mesh[] = [];
+  /** Called on every frame with the seconds since the previous one. */
+  onFrame: ((elapsed: number) => void) | null = null;
   private readonly ghost = new THREE.Mesh(
     new THREE.BufferGeometry(),
     new THREE.MeshStandardMaterial({ color: 0x2f8f5b, transparent: true, opacity: 0.55, depthWrite: false, flatShading: true }),
@@ -55,7 +70,7 @@ export class AssemblyView {
     this.ghost.matrixAutoUpdate = false;
     this.ghost.visible = false;
     this.ghost.renderOrder = 3;
-    this.scene.add(this.ghost);
+    this.scene.add(this.ghost, this.overlay);
 
     container.appendChild(this.renderer.domElement);
     this.renderer.setPixelRatio(window.devicePixelRatio);
@@ -67,7 +82,9 @@ export class AssemblyView {
     new ResizeObserver(() => this.resize()).observe(container);
     this.resize();
     this.renderer.setAnimationLoop(() => {
+      const elapsed = this.clock.getDelta();
       if (!this.container.clientWidth) return;
+      this.onFrame?.(elapsed);
       this.controls.update();
       this.renderer.render(this.scene, this.camera);
     });
@@ -152,6 +169,74 @@ export class AssemblyView {
       mesh.userData = { id: piece.id, top: piece.top, base: piece.base };
       mesh.material = piece.id === selectedId ? this.selectedMaterial : flagged.has(piece.id) ? this.flaggedMaterial : this.material;
     }
+  }
+
+  /** Draws each journey as a line, coloured from blue when slow to red when fast. */
+  setTrails(journeys: Sample[][]) {
+    for (const trail of this.trails) {
+      trail.geometry.dispose();
+      this.overlay.remove(trail);
+    }
+    const fastest = Math.max(1, ...journeys.flat().map((s) => s.speed));
+    this.trails = journeys.map((samples) => {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(samples.flatMap((s) => s.position), 3));
+      const color = new THREE.Color();
+      geometry.setAttribute(
+        'color',
+        new THREE.Float32BufferAttribute(
+          samples.flatMap((s) => {
+            color.setHSL(SLOW_HUE + (FAST_HUE - SLOW_HUE) * (s.speed / fastest), 0.9, 0.45);
+            return [color.r, color.g, color.b];
+          }),
+          3,
+        ),
+      );
+      const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ vertexColors: true, depthTest: false }));
+      line.renderOrder = 4;
+      this.overlay.add(line);
+      return line;
+    });
+  }
+
+  private syncMeshes(list: THREE.Mesh[], points: Vec3[], make: () => THREE.Mesh) {
+    while (list.length > points.length) this.overlay.remove(list.pop()!);
+    while (list.length < points.length) {
+      const mesh = make();
+      this.overlay.add(mesh);
+      list.push(mesh);
+    }
+    points.forEach((p, i) => list[i].position.set(...p));
+  }
+
+  setMarbles(positions: Vec3[]) {
+    this.syncMeshes(this.marbles, positions, () => {
+      const mesh = new THREE.Mesh(this.marbleGeometry, this.marbleMaterial);
+      mesh.renderOrder = 5;
+      return mesh;
+    });
+  }
+
+  setProblems(points: Vec3[]) {
+    this.syncMeshes(this.problems, points, () => {
+      const mesh = new THREE.Mesh(this.marbleGeometry, this.problemMaterial);
+      mesh.scale.setScalar(0.6);
+      mesh.renderOrder = 6;
+      return mesh;
+    });
+  }
+
+  clearOverlay() {
+    this.setTrails([]);
+    this.setMarbles([]);
+    this.setProblems([]);
+  }
+
+  /** Points the camera at a place, keeping the current viewing direction. */
+  focus([x, y, z]: Vec3) {
+    const offset = this.camera.position.clone().sub(this.controls.target);
+    this.controls.target.set(x, y, z);
+    this.camera.position.copy(this.controls.target).add(offset.setLength(Math.min(offset.length(), 320)));
   }
 
   setGhost(ghost: { geometry: THREE.BufferGeometry; matrix: number[] } | null) {
