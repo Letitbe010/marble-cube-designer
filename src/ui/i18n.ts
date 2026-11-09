@@ -15,6 +15,8 @@ export const LANGS: Lang[] = ['eu', 'es', 'en'];
 const STRINGS = {
   eu: {
     hint: 'Aukeratu pieza bat edo egin klik bi portutan 3D bistan, kanal bat sortzeko.',
+    asmExportZip: 'Deskargatu piezak (ZIP)',
+    asmExportWarn: 'Muntaiak akatsak ditu: konpondu inprimatu aurretik.',
     asmChecks: 'Egiaztapenak',
     asmChecksSummary: '{errors} akats · {warnings} abisu',
     asmNoIssues: 'Ez dago arazorik.',
@@ -147,6 +149,8 @@ const STRINGS = {
   },
   es: {
     hint: 'Elige una pieza o haz clic en dos puertos en la vista 3D para crear un canal.',
+    asmExportZip: 'Descargar piezas (ZIP)',
+    asmExportWarn: 'El montaje tiene errores: corrígelos antes de imprimir.',
     asmChecks: 'Comprobaciones',
     asmChecksSummary: '{errors} errores · {warnings} avisos',
     asmNoIssues: 'No hay problemas.',
@@ -279,6 +283,8 @@ const STRINGS = {
   },
   en: {
     hint: 'Pick a piece, or click two ports in the 3D view to create a channel.',
+    asmExportZip: 'Download pieces (ZIP)',
+    asmExportWarn: 'The assembly has errors: fix them before printing.',
     asmChecks: 'Checks',
     asmChecksSummary: '{errors} errors · {warnings} warnings',
     asmNoIssues: 'No problems found.',

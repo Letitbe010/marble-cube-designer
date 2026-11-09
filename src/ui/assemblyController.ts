@@ -19,6 +19,7 @@ import {
   type Rotation,
 } from '../assembly/model';
 import { checkAssembly, type CheckIssue } from '../assembly/checks';
+import { exportAssemblyZip } from '../assembly/export';
 import { pieceList } from '../assembly/pieceList';
 import { buildPiece } from '../geometry/piece';
 import type { PieceSpec } from '../geometry/ports';
@@ -36,7 +37,7 @@ export interface AssemblyDeps {
   t: (key: StringKey, values?: Record<string, string>) => string;
   currentSpec: () => PieceSpec;
   onChange: () => void;
-  download: (content: string, name: string, type: string) => void;
+  download: (content: ArrayBuffer | string, name: string, type: string) => void;
 }
 
 function loadSaved(): Assembly {
@@ -189,6 +190,11 @@ export class AssemblyController {
     this.afterChange();
   }
 
+  private async exportZip() {
+    const data = await exportAssemblyZip(this.deps.wasm, this.assembly);
+    this.deps.download(data, `${this.assembly.name}.zip`, 'application/zip');
+  }
+
   private async importFile(file: File) {
     try {
       this.commit(parseAssembly(await file.text()));
@@ -219,6 +225,7 @@ export class AssemblyController {
     else if (asm === 'undo') this.undo();
     else if (asm === 'redo') this.redo();
     else if (asm === 'stopPlacing') this.setBrush(null);
+    else if (asm === 'exportZip') void this.exportZip();
     else if (asm === 'clear') this.commit({ ...this.assembly, pieces: [] });
     else if (asm === 'save') this.deps.download(serializeAssembly(this.assembly), `${this.assembly.name}.json`, 'application/json');
     else if (asm === 'load') target.closest('#panel')?.querySelector<HTMLInputElement>('#asmFile')?.click();
@@ -287,7 +294,10 @@ export class AssemblyController {
         return `<li><span>${id} <small>${t(SHAPE_LABELS[spec.body.shape])} ${x * 50}×${y * 50}×${z * 50}</small></span><strong>× ${count}</strong></li>`;
       })
       .join('');
-    return `<h2>${t('asmList')}</h2><ul class="segments">${rows}</ul>`;
+    const hasErrors = this.issues.some((i) => i.level === 'error');
+    return `<h2>${t('asmList')}</h2><ul class="segments">${rows}</ul>
+      <button class="btn primary spaced" data-asm="exportZip">${t('asmExportZip')}</button>
+      ${hasErrors ? `<p class="hint">${t('asmExportWarn')}</p>` : ''}`;
   }
 
   render(): string {
