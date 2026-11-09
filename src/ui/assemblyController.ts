@@ -39,6 +39,9 @@ import { SHAPE_LABELS, type Lang, type StringKey } from './i18n';
 import { toFlatGeometry } from './viewer';
 
 const STORAGE_KEY = 'marble-cube-assembly';
+const VERDICT_LABELS: Record<Verdict, StringKey> = { good: 'verdictGood', marginal: 'verdictMarginal', problem: 'verdictProblem' };
+
+type Popover = 'gallery' | 'file' | 'details';
 
 export interface AssemblyDeps {
   wasm: ManifoldToplevel;
@@ -74,6 +77,7 @@ export class AssemblyController {
   private brushRotation: Rotation = 0;
   private hover: Cell | null = null;
   private importFailed = false;
+  private popover: Popover | null = null;
   private issues: CheckIssue[] = [];
   private active = true;
   private galleryId = GALLERY[0].id;
@@ -123,6 +127,7 @@ export class AssemblyController {
   /** While another tab uses the shared view, the pointer must not edit the assembly. */
   setActive(active: boolean) {
     this.active = active;
+    this.popover = null;
     if (active) this.palette.start();
     this.hover = null;
     this.syncGhost();
@@ -220,6 +225,10 @@ export class AssemblyController {
 
   private onViewClick(cell: Cell | null, pieceId: string | null) {
     if (!this.active) return;
+    if (this.popover === 'gallery' || this.popover === 'file') {
+      this.popover = null;
+      this.deps.onChange();
+    }
     const spec = this.brushSpec();
     if (spec) {
       if (cell) this.commit(addPiece(this.assembly, spec, cell, this.brushRotation));
@@ -298,6 +307,7 @@ export class AssemblyController {
     const item = this.galleryItem();
     this.selected = null;
     this.brush = null;
+    this.popover = null;
     this.commit(item.assembly);
     this.frameAssembly();
     this.deps.onGalleryLoad(item);
@@ -306,7 +316,6 @@ export class AssemblyController {
   private renderGallery(): string {
     const { t, lang } = this.deps;
     const labels: Record<GalleryLevel, StringKey> = { showpiece: 'galShowpiece', beginner: 'galBeginner', intermediate: 'galIntermediate', advanced: 'galAdvanced' };
-    const verdicts: Record<Verdict, StringKey> = { good: 'verdictGood', marginal: 'verdictMarginal', problem: 'verdictProblem' };
     const text = (item: GalleryItem) => GALLERY_TEXT[item.id][lang()];
     const groups = (Object.keys(labels) as GalleryLevel[])
       .map((level) => `<optgroup label="${t(labels[level])}">
@@ -319,7 +328,7 @@ export class AssemblyController {
       <h2>${t('galTitle')}</h2>
       <select id="asmGallery" class="wide-select" aria-label="${t('galTitle')}">${groups}</select>
       <p class="hint">${text(item).note}</p>
-      <p class="stats">${t('galInfo', { pieces: String(info.pieces), kinds: String(info.kinds), volume: (info.volume / 1000).toFixed(0) })}${info.verdict ? ` · ${t(verdicts[info.verdict])}` : ''}</p>
+      <p class="stats">${t('galInfo', { pieces: String(info.pieces), kinds: String(info.kinds), volume: (info.volume / 1000).toFixed(0) })}${info.verdict ? ` · ${t(VERDICT_LABELS[info.verdict])}` : ''}</p>
       <button class="btn wide" data-asm="loadGallery">${t('galLoad')}</button>`;
   }
 
@@ -334,6 +343,7 @@ export class AssemblyController {
       this.frameAssembly();
       this.importFailed = false;
       this.selected = null;
+      this.popover = null;
     } catch {
       this.importFailed = true;
     }
@@ -342,7 +352,12 @@ export class AssemblyController {
 
   /** Handles a click inside the panel. */
   handleClick(target: HTMLElement) {
-    const { asm, asmMove, asmIssue } = target.dataset;
+    const { asm, asmMove, asmIssue, asmToggle } = target.dataset;
+    if (asmToggle) {
+      this.popover = this.popover === asmToggle ? null : (asmToggle as Popover);
+      this.deps.onChange();
+      return;
+    }
     if (asmIssue !== undefined) {
       this.selected = this.issues[Number(asmIssue)]?.pieceIds[0] ?? null;
       this.syncView();
@@ -358,12 +373,11 @@ export class AssemblyController {
     else if (asm === 'remove') this.remove();
     else if (asm === 'undo') this.undo();
     else if (asm === 'redo') this.redo();
-    else if (asm === 'stopPlacing') this.setBrush(null);
     else if (asm === 'exportZip') void this.exportZip();
     else if (asm === 'loadGallery') this.loadGallery();
     else if (asm === 'clear') this.commit({ ...this.assembly, pieces: [] });
     else if (asm === 'save') this.deps.download(serializeAssembly(this.assembly), `${this.assembly.name}.json`, 'application/json');
-    else if (asm === 'load') target.closest('#panel')?.querySelector<HTMLInputElement>('#asmFile')?.click();
+    else if (asm === 'load') document.querySelector<HTMLInputElement>('#asmFile')?.click();
   }
 
   /** Handles a form change inside the panel. */
@@ -400,7 +414,10 @@ export class AssemblyController {
     else if (key === 'r') this.rotate();
     else if (key === 'delete' || key === 'backspace') this.remove();
     else if (key === 'escape') {
-      if (this.brush) this.setBrush(null);
+      if (this.popover) {
+        this.popover = null;
+        this.deps.onChange();
+      } else if (this.brush) this.setBrush(null);
       else {
         this.selected = null;
         this.syncView();
@@ -433,62 +450,96 @@ export class AssemblyController {
       .join('');
     const hasErrors = this.issues.some((i) => i.level === 'error');
     return `<h2>${t('asmList')}</h2><ul class="segments">${rows}</ul>
-      <button class="btn primary spaced" data-asm="exportZip">${t('asmExportZip')}</button>
       ${hasErrors ? `<p class="hint">${t('asmExportWarn')}</p>` : ''}`;
   }
 
-  render(): string {
+  private renderFile(): string {
+    const { t } = this.deps;
+    const plates = this.deps.locators() ? plateTiles(this.assembly).length : 0;
+    return `
+      <h2>${t('asmAssembly')}</h2>
+      <label class="toggle"><input type="checkbox" id="locators"${this.deps.locators() ? ' checked' : ''} /> ${t('printLocators')}</label>
+      ${plates ? `<p class="stats">${t('asmPlates', { count: String(plates) })}</p>` : ''}
+      <div class="presets files">
+        <button class="btn" data-asm="save">${t('saveDesign')}</button>
+        <button class="btn" data-asm="load">${t('loadDesign')}</button>
+      </div>
+      <button class="btn wide" data-asm="clear"${this.assembly.pieces.length ? '' : ' disabled'}>${t('clear')}</button>
+      ${this.importFailed ? `<div class="notice error">${t('badFile')}</div>` : ''}`;
+  }
+
+  /** The commands, in a row above the 3D view. */
+  renderRibbon(): string {
     const { t } = this.deps;
     this.palette.sync(this.brush);
     const button = (attr: string, label: string, enabled = true) => `<button class="btn" ${attr}${enabled ? '' : ' disabled'}>${label}</button>`;
+    const menu = (id: Popover, label: StringKey) => `<button class="btn${this.popover === id ? ' open' : ''}" data-asm-toggle="${id}">${t(label)} ▾</button>`;
     const hasSelection = this.selected !== null;
-    const piece = this.assembly.pieces.find((p) => p.id === this.selected);
+    const hasPieces = this.assembly.pieces.length > 0;
+    const hasErrors = this.issues.some((i) => i.level === 'error');
+    const openMenu = this.popover === 'gallery' ? this.renderGallery() : this.popover === 'file' ? this.renderFile() : '';
 
     return `
-      <p class="hint">${t('asmHint')}</p>
-
-      ${this.renderGallery()}
-
-      <h2>${t('asmPlace')}</h2>
-      ${this.brush ? `<p class="stats">${t(this.brush === CURRENT_PIECE ? 'asmCurrentPiece' : (this.brush as StringKey))} · ${t('asmRotation')}: ${this.brushRotation}°</p>
-        <div class="presets files">
-          ${button('data-asm="rotate"', t('asmRotate'))}
-          ${button('data-asm="stopPlacing"', t('asmStop'))}
-        </div>` : `<p class="empty">${t('palHint')}</p>`}
-
-      <h2>${t('asmSelected')}</h2>
-      ${piece ? `<p class="stats">${t('asmPosition')}: ${piece.cell.join(' · ')} · ${piece.rotation}°</p>` : `<p class="empty">${t('asmNoSelection')}</p>`}
-      <div class="move-grid">
-        ${button('data-asm-move="0,1,0"', '↑', hasSelection)}
+      <div class="rib-group">${menu('gallery', 'ribExamples')}${menu('file', 'ribFile')}</div>
+      <div class="rib-group">
+        ${button('data-asm="undo"', t('asmUndo'), this.history.canUndo)}
+        ${button('data-asm="redo"', t('asmRedo'), this.history.canRedo)}
+      </div>
+      <div class="rib-group">
+        ${button('data-asm="rotate"', t('asmRotate'), hasSelection || this.brush !== null)}
+        ${button('data-asm="duplicate"', t('asmDuplicate'), hasSelection)}
+        ${button('data-asm="remove"', t('remove'), hasSelection)}
+      </div>
+      <div class="rib-group">
+        <span class="rib-label">${t('ribMove')}</span>
         ${button('data-asm-move="-1,0,0"', '←', hasSelection)}
+        ${button('data-asm-move="0,1,0"', '↑', hasSelection)}
         ${button('data-asm-move="0,-1,0"', '↓', hasSelection)}
         ${button('data-asm-move="1,0,0"', '→', hasSelection)}
         ${button('data-asm-move="0,0,1"', 'Z+', hasSelection)}
         ${button('data-asm-move="0,0,-1"', 'Z−', hasSelection)}
       </div>
-      <div class="presets files">
-        ${button('data-asm="rotate"', t('asmRotate'), hasSelection)}
-        ${button('data-asm="duplicate"', t('asmDuplicate'), hasSelection)}
-        ${button('data-asm="remove"', t('remove'), hasSelection)}
+      <div class="rib-group end">
+        <button class="btn" data-tab="simulation">${t('tabSimulation')}</button>
+        <button class="btn primary" data-asm="exportZip"${hasPieces ? '' : ' disabled'}${hasErrors ? ` title="${t('asmExportWarn')}"` : ''}>${t('asmExportZip')}</button>
       </div>
+      ${openMenu ? `<div class="pop menu">${openMenu}</div>` : ''}
+      <input type="file" id="asmFile" accept=".json,application/json" hidden />`;
+  }
 
+  /** What the status card says about the current action. */
+  private statusContext(): string {
+    const { t } = this.deps;
+    if (this.brush) return `${t(this.brush === CURRENT_PIECE ? 'asmCurrentPiece' : (this.brush as StringKey))} · ${t('asmRotation')}: ${this.brushRotation}°`;
+    const piece = this.assembly.pieces.find((p) => p.id === this.selected);
+    if (piece) return `${t('asmPosition')}: ${piece.cell.join(' · ')} · ${piece.rotation}°`;
+    return t(this.assembly.pieces.length ? 'asmNoSelection' : 'palHint');
+  }
+
+  /** The status card over the 3D view, with the checks and the piece list behind it. */
+  renderOverlay(): string {
+    const { t } = this.deps;
+    const errors = this.issues.filter((i) => i.level === 'error').length;
+    const warnings = this.issues.length - errors;
+    const count = this.assembly.pieces.length;
+    const verdict: Verdict = errors ? 'problem' : warnings ? 'marginal' : 'good';
+    const open = this.popover === 'details';
+    const details = `<div class="pop details">
       ${this.renderChecks()}
       ${this.renderList()}
-
-      <h2>${t('asmAssembly')}</h2>
-      <label class="toggle"><input type="checkbox" id="locators"${this.deps.locators() ? ' checked' : ''} /> ${t('printLocators')}</label>
-      ${this.deps.locators() && plateTiles(this.assembly).length ? `<p class="stats">${t('asmPlates', { count: String(plateTiles(this.assembly).length) })}</p>` : ''}
-      <p class="stats">${t('asmCount', { count: String(this.assembly.pieces.length) })}</p>
-      <div class="presets files">
-        ${button('data-asm="undo"', t('asmUndo'), this.history.canUndo)}
-        ${button('data-asm="redo"', t('asmRedo'), this.history.canRedo)}
-        ${button('data-asm="save"', t('saveDesign'))}
-        ${button('data-asm="load"', t('loadDesign'))}
-      </div>
-      <button class="btn wide" data-asm="clear"${this.assembly.pieces.length ? '' : ' disabled'}>${t('clear')}</button>
-      <input type="file" id="asmFile" accept=".json,application/json" hidden />
-      ${this.importFailed ? `<div class="notice error">${t('badFile')}</div>` : ''}
+      <p class="hint">${t('asmHint')}</p>
       <p class="hint">${t('asmKeys')}</p>
-    `;
+      <footer>${t('disclaimer')}</footer>
+    </div>`;
+    return `
+      ${open ? details : ''}
+      <button class="status" data-asm-toggle="details" aria-expanded="${open}">
+        <span class="status-main">
+          ${count ? `<strong class="tone-${verdict}">${t(VERDICT_LABELS[verdict])}</strong> ·` : ''}
+          ${t('asmCount', { count: String(count) })} · ${t('asmChecksSummary', { errors: String(errors), warnings: String(warnings) })}
+          <span class="caret">${open ? '▼' : '▲'}</span>
+        </span>
+        <span class="status-context">${this.statusContext()}</span>
+      </button>`;
   }
 }

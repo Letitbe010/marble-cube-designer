@@ -7,12 +7,19 @@
   </head>
   <body>
     <div id="app">
-      <aside id="panel"></aside>
-      <main id="views">
-        <div id="viewport"></div>
-        <div id="assemblyViewport" hidden></div>
-        <aside id="palette" hidden></aside>
-      </main>
+      <div id="topbar"></div>
+      <div id="ribbon" hidden>
+        <div id="ribbonTools"></div>
+        <aside id="palette"></aside>
+      </div>
+      <div id="workspace">
+        <aside id="panel"></aside>
+        <main id="views">
+          <div id="viewport"></div>
+          <div id="assemblyViewport" hidden></div>
+          <div id="asmOverlay" hidden></div>
+        </main>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

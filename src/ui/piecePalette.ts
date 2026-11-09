@@ -64,23 +64,30 @@ export class PiecePalette {
   private labelSample = '';
   private currentKey = '';
   private query = '';
+  private category: string = LIBRARY[0].category;
+  private folded = false;
 
   constructor(private readonly root: HTMLElement, private readonly deps: PaletteDeps) {
     root.addEventListener('click', (event) => {
-      const target = (event.target as HTMLElement).closest<HTMLElement>('[data-piece], [data-palette-select]');
+      const target = (event.target as HTMLElement).closest<HTMLElement>('button');
       if (!target) return;
-      deps.onPick(target.dataset.piece ?? null);
+      const { piece, paletteCategory } = target.dataset;
+      if (paletteCategory) this.showCategory(paletteCategory);
+      else if ('paletteFold' in target.dataset) this.fold(!this.folded);
+      else if (piece || 'paletteSelect' in target.dataset) deps.onPick(piece ?? null);
     });
     root.addEventListener('input', (event) => {
       this.query = (event.target as HTMLInputElement).value.trim().toLowerCase();
+      this.folded = false;
+      this.showActive();
       this.applyFilter();
     });
     this.render();
   }
 
-  private card(key: string, label: string): string {
+  private card(key: string, label: string, category = ''): string {
     const image = this.images.get(this.imageKey(key));
-    return `<button class="piece-card" data-piece="${key}" data-name="${label.toLowerCase()}" title="${label}">
+    return `<button class="piece-card" data-piece="${key}" data-category="${category}" data-name="${label.toLowerCase()}" title="${label}">
       <span class="piece-image">${image ? `<img src="${image}" alt="" />` : ''}</span>
       <span class="piece-label">${label}</span>
     </button>`;
@@ -89,31 +96,40 @@ export class PiecePalette {
   private render() {
     const { t } = this.deps;
     this.labelSample = t('asmCurrentPiece');
-    const sections = LIBRARY.map(({ category, items }) => `
-      <section>
-        <h3>${t(category)}</h3>
-        <div class="piece-grid">${items.map((key) => this.card(key, t(key as StringKey))).join('')}</div>
-      </section>`).join('');
+    const chips = LIBRARY.map(({ category }) => `<button class="chip" data-palette-category="${category}">${t(category)}</button>`).join('');
+    const cards = LIBRARY.flatMap(({ category, items }) => items.map((key) => this.card(key, t(key as StringKey), category))).join('');
     this.root.innerHTML = `
       <div class="palette-head">
         <input type="search" id="paletteSearch" placeholder="${t('palSearch')}" aria-label="${t('palSearch')}" value="${this.query}" />
         <button class="btn" data-palette-select>${t('palSelect')}</button>
+        <div class="chips">${chips}</div>
+        <button class="btn palette-fold" data-palette-fold title="${t('ribFold')}" aria-label="${t('ribFold')}"></button>
       </div>
-      <section>
-        <div class="piece-grid">${this.card(CURRENT_PIECE, t('asmCurrentPiece'))}</div>
-      </section>
-      ${sections}`;
+      <div class="piece-grid">${this.card(CURRENT_PIECE, t('asmCurrentPiece'))}${cards}</div>`;
     this.showActive();
     this.applyFilter();
   }
 
+  /** With a search, every matching piece shows; without one, the chosen category does. */
   private applyFilter() {
     for (const card of this.root.querySelectorAll<HTMLElement>('.piece-card')) {
-      card.hidden = this.query !== '' && !card.dataset.name!.includes(this.query);
+      const { name, category } = card.dataset;
+      card.hidden = this.query !== '' ? !name!.includes(this.query) : category !== '' && category !== this.category;
     }
-    for (const section of this.root.querySelectorAll<HTMLElement>('section')) {
-      section.hidden = !section.querySelector('.piece-card:not([hidden])');
-    }
+  }
+
+  private showCategory(category: string) {
+    this.category = category;
+    this.query = '';
+    this.folded = false;
+    this.root.querySelector<HTMLInputElement>('#paletteSearch')!.value = '';
+    this.showActive();
+    this.applyFilter();
+  }
+
+  private fold(folded: boolean) {
+    this.folded = folded;
+    this.showActive();
   }
 
   private showActive() {
@@ -121,6 +137,11 @@ export class PiecePalette {
       card.classList.toggle('active', card.dataset.piece === this.active);
     }
     this.root.querySelector('[data-palette-select]')?.classList.toggle('active', this.active === null);
+    for (const chip of this.root.querySelectorAll<HTMLElement>('.chip')) {
+      chip.classList.toggle('active', this.query === '' && chip.dataset.paletteCategory === this.category);
+    }
+    this.root.classList.toggle('folded', this.folded);
+    this.root.querySelector('.palette-fold')!.textContent = this.folded ? '▼' : '▲';
   }
 
   private specOf(key: string): PieceSpec {

@@ -86,6 +86,10 @@ const state = {
 };
 
 const panel = document.querySelector<HTMLElement>('#panel')!;
+const topbar = document.querySelector<HTMLElement>('#topbar')!;
+const ribbon = document.querySelector<HTMLElement>('#ribbon')!;
+const ribbonTools = document.querySelector<HTMLElement>('#ribbonTools')!;
+const overlay = document.querySelector<HTMLElement>('#asmOverlay')!;
 const t = (key: StringKey, values?: Record<string, string>) => translate(state.lang, key, values);
 
 let wasm: ManifoldToplevel | null = null;
@@ -358,30 +362,45 @@ function switchTab(next: typeof state.tab) {
   render();
 }
 
-function renderHeader(): string {
+function renderTopbar(): string {
   const tab = (id: typeof state.tab, label: StringKey) => `<button class="tab${state.tab === id ? ' active' : ''}" data-tab="${id}">${t(label)}</button>`;
   return `
-    <header>
-      <h1>Marble Cube Designer</h1>
-      <div class="lang">${LANGS.map((l) => `<button data-lang="${l}" class="${l === state.lang ? 'active' : ''}">${l.toUpperCase()}</button>`).join('')}</div>
-    </header>
-    <nav class="tabs">${tab('piece', 'tabPiece')}${tab('assembly', 'tabAssembly')}${tab('simulation', 'tabSimulation')}${tab('calibration', 'tabCalibration')}</nav>`;
+    <h1>Marble Cube Designer</h1>
+    <nav class="tabs">${tab('piece', 'tabPiece')}${tab('assembly', 'tabAssembly')}${tab('simulation', 'tabSimulation')}${tab('calibration', 'tabCalibration')}</nav>
+    <div class="lang">${LANGS.map((l) => `<button data-lang="${l}" class="${l === state.lang ? 'active' : ''}">${l.toUpperCase()}</button>`).join('')}</div>`;
 }
 
 function showTab() {
-  const usesAssemblyView = state.tab === 'assembly' || state.tab === 'simulation';
+  const isAssembly = state.tab === 'assembly';
+  const usesAssemblyView = isAssembly || state.tab === 'simulation';
   document.querySelector<HTMLElement>('#viewport')!.hidden = usesAssemblyView;
   document.querySelector<HTMLElement>('#assemblyViewport')!.hidden = !usesAssemblyView;
-  document.querySelector<HTMLElement>('#palette')!.hidden = state.tab !== 'assembly';
-  document.querySelector<HTMLElement>('#views')!.classList.toggle('with-palette', state.tab === 'assembly');
+  document.querySelector<HTMLElement>('#workspace')!.classList.toggle('full', isAssembly);
+  ribbon.hidden = !isAssembly;
+  overlay.hidden = !isAssembly;
+  panel.hidden = isAssembly;
+}
+
+/** Redraws the floating assembly card, keeping its list where the user scrolled it. */
+function renderOverlay() {
+  const scrolled = overlay.querySelector('.pop')?.scrollTop ?? 0;
+  overlay.innerHTML = assembly?.renderOverlay() ?? '';
+  const pop = overlay.querySelector('.pop');
+  if (pop) pop.scrollTop = scrolled;
 }
 
 function render() {
   document.documentElement.lang = state.lang;
+  topbar.innerHTML = renderTopbar();
   showTab();
+  if (state.tab === 'assembly') {
+    ribbonTools.innerHTML = assembly?.renderRibbon() ?? `<p class="stats">${t('loading')}</p>`;
+    renderOverlay();
+    return;
+  }
   if (state.tab !== 'piece') {
-    const body = state.tab === 'assembly' ? assembly?.render() : state.tab === 'simulation' ? simulation?.render() : calibrationPanel.render();
-    panel.innerHTML = `${renderHeader()}${body ?? `<p class="stats">${t('loading')}</p>`}<footer>${t('disclaimer')}</footer>`;
+    const body = state.tab === 'simulation' ? simulation?.render() : calibrationPanel.render();
+    panel.innerHTML = `${body ?? `<p class="stats">${t('loading')}</p>`}<footer>${t('disclaimer')}</footer>`;
     return;
   }
   const { spec, result } = state;
@@ -399,7 +418,6 @@ function render() {
   ].filter(Boolean).join('');
 
   panel.innerHTML = `
-    ${renderHeader()}
     <p class="hint">${t('hint')}</p>
 
     ${LIBRARY.map(({ category, items }) => `
@@ -434,7 +452,9 @@ function render() {
   `;
 }
 
-panel.addEventListener('click', (event) => {
+const controlAreas = [topbar, panel, ribbonTools, overlay];
+
+const onControlClick = (event: Event) => {
   const target = (event.target as HTMLElement).closest<HTMLElement>('button');
   if (!target) return;
   const { lang, preset, remove, removeCavity, tab } = target.dataset;
@@ -474,9 +494,9 @@ panel.addEventListener('click', (event) => {
   } else if (target.id === 'calibration') {
     exportCalibration();
   }
-});
+};
 
-panel.addEventListener('change', (event) => {
+const onControlChange = (event: Event) => {
   const target = event.target as HTMLInputElement | HTMLSelectElement;
   if (target.id === 'lanes') {
     state.lanes = (target as HTMLInputElement).checked;
@@ -531,7 +551,12 @@ panel.addEventListener('change', (event) => {
     state.seeThrough = (target as HTMLInputElement).checked;
     viewer?.setSeeThrough(state.seeThrough);
   }
-});
+};
+
+for (const area of controlAreas) {
+  area.addEventListener('click', onControlClick);
+  area.addEventListener('change', onControlChange);
+}
 
 window.addEventListener('keydown', (event) => {
   if (state.tab !== 'assembly' || !assembly) return;
