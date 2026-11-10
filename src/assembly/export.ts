@@ -7,11 +7,16 @@ import { buildPrintParts } from '../geometry/print';
 import { toBinaryStl } from '../geometry/stl';
 import { serializeAssembly, type Assembly } from './model';
 import { pieceList } from './pieceList';
-import { plateTiles } from './plates';
+import { plateGroups } from './plates';
 
 export interface ExportOptions {
   /** Adds corner studs and pockets to the pieces, and base plates under them. */
   locators?: boolean;
+  /**
+   * How many of each piece and plate to print, by ID, when some are already printed.
+   * Anything not named is left out. Without it, the whole assembly is exported.
+   */
+  quantities?: Record<string, number>;
 }
 
 export const MANIFEST_NAME = 'parts.txt';
@@ -22,7 +27,14 @@ export async function exportAssemblyZip(wasm: ManifoldToplevel, assembly: Assemb
   const zip = new JSZip();
   const rows = ['id\tcount\tshape\tsize_mm\tvolume_cm3\tfile'];
 
-  for (const { id, spec, count } of pieceList(assembly)) {
+  const howMany = (id: string, count: number) => (options.quantities ? options.quantities[id] ?? 0 : count);
+  let total = 0;
+
+  for (const group of pieceList(assembly)) {
+    const { id, spec } = group;
+    const count = howMany(id, group.count);
+    if (count === 0) continue;
+    total += count;
     const { parts } = buildPrintParts(wasm, spec, { engrave: true, locators: options.locators });
     const size = spec.body.size.map((value) => value * CONFIG.cubeSize).join('x');
     for (const { suffix, result } of parts) {
@@ -33,15 +45,14 @@ export async function exportAssemblyZip(wasm: ManifoldToplevel, assembly: Assemb
     }
   }
 
-  rows.push(`total\t${assembly.pieces.length}`);
+  rows.push(`total\t${total}`);
 
   if (options.locators) {
-    const sizes = new Map<string, { size: [number, number]; count: number }>();
-    for (const { size } of plateTiles(assembly)) {
+    for (const group of plateGroups(assembly)) {
+      const { size } = group;
+      const count = howMany(group.id, group.count);
+      if (count === 0) continue;
       const key = size.join('x');
-      sizes.set(key, { size, count: (sizes.get(key)?.count ?? 0) + 1 });
-    }
-    for (const [key, { size, count }] of sizes) {
       const plate = buildBasePlate(wasm, size[0], size[1]);
       const result = toResult(plate);
       plate.delete();

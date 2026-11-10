@@ -28,3 +28,23 @@ export function plateTiles(assembly: Assembly, maxCells: number = CONFIG.plateMa
   }
   return tiles;
 }
+
+export interface PlateGroup {
+  id: string;
+  /** Size in cells, the longer side first. */
+  size: [number, number];
+  count: number;
+}
+
+/** Plates of the same size, as they are printed: a 3 × 4 tile is a 4 × 3 one turned. */
+export function plateGroups(assembly: Assembly, maxCells: number = CONFIG.plateMaxCells): PlateGroup[] {
+  const groups = new Map<string, PlateGroup>();
+  for (const { size } of plateTiles(assembly, maxCells)) {
+    const sorted: [number, number] = [Math.max(...size), Math.min(...size)];
+    const id = `plate-${sorted[0]}x${sorted[1]}`;
+    const group = groups.get(id);
+    if (group) group.count += 1;
+    else groups.set(id, { id, size: sorted, count: 1 });
+  }
+  return [...groups.values()].sort((a, b) => a.id.localeCompare(b.id));
+}

@@ -24,7 +24,10 @@ import { checkAssembly, type CheckIssue } from '../assembly/checks';
 import { exportAssemblyZip } from '../assembly/export';
 import { GALLERY, type GalleryItem, type GalleryLevel } from '../assembly/gallery';
 import { pieceList } from '../assembly/pieceList';
-import { plateTiles } from '../assembly/plates';
+import { addPrinted, compareStock, inventoryToCsv, parseInventoryCsv, setStock, type Inventory, type StockRow } from '../assembly/inventory';
+import { plateGroups, plateTiles } from '../assembly/plates';
+import { filamentGrams, meshArea } from '../geometry/filament';
+import { specKey } from '../geometry/print';
 import { CONFIG } from '../geometry/config';
 import { buildBasePlate } from '../geometry/locators';
 import { toResult } from '../geometry/piece';
@@ -39,6 +42,7 @@ import { SHAPE_LABELS, type Lang, type StringKey } from './i18n';
 import { toFlatGeometry } from './viewer';
 
 const STORAGE_KEY = 'marble-cube-assembly';
+const INVENTORY_KEY = 'marble-cube-inventory';
 const VERDICT_LABELS: Record<Verdict, StringKey> = { good: 'verdictGood', marginal: 'verdictMarginal', problem: 'verdictProblem' };
 
 type Popover = 'gallery' | 'file' | 'details';
@@ -55,6 +59,15 @@ export interface AssemblyDeps {
   onGalleryLoad: (item: GalleryItem) => void;
   onChange: () => void;
   download: (content: ArrayBuffer | string, name: string, type: string) => void;
+}
+
+function loadInventory(): Inventory {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(INVENTORY_KEY) ?? '{}') as Inventory;
+    return Object.entries(parsed).reduce((inventory, [id, count]) => setStock(inventory, id, Number(count)), {} as Inventory);
+  } catch {
+    return {};
+  }
 }
 
 function loadSaved(): Assembly {
@@ -78,6 +91,10 @@ export class AssemblyController {
   private hover: Cell | null = null;
   private importFailed = false;
   private popover: Popover | null = null;
+  private inventory = loadInventory();
+  private onlyMissing = true;
+  private inventoryFailed = false;
+  private readonly grams = new Map<string, number>();
   private issues: CheckIssue[] = [];
   private active = true;
   private galleryId = GALLERY[0].id;
@@ -332,8 +349,77 @@ export class AssemblyController {
       <button class="btn wide" data-asm="loadGallery">${t('galLoad')}</button>`;
   }
 
+  /** What the assembly needs, what is on the shelf and what each piece and plate is. */
+  private stock() {
+    const { t } = this.deps;
+    const groups = pieceList(this.assembly);
+    const plates = this.deps.locators() ? plateGroups(this.assembly) : [];
+    const rows = compareStock([...groups, ...plates], this.inventory);
+    const labels = new Map<string, string>([
+      ...groups.map(({ id, spec }): [string, string] => [id, `${t(SHAPE_LABELS[spec.body.shape])} ${spec.body.size.map((v) => v * 50).join('×')}`]),
+      ...plates.map(({ id, size }): [string, string] => [id, t('invPlate', { size: size.map((v) => v * 50).join('×') })]),
+    ]);
+    return { groups, plates, rows, labels };
+  }
+
+  /** Whether the ZIP should hold only the pieces that are missing. */
+  private exportsMissing(rows: StockRow[]): boolean {
+    return this.onlyMissing && rows.some((row) => row.have > 0);
+  }
+
+  private remember(key: string, solid: () => { positions: Float32Array; triangles: Uint32Array; volume: number }): number {
+    let grams = this.grams.get(key);
+    if (grams === undefined) {
+      const { positions, triangles, volume } = solid();
+      grams = filamentGrams(volume, meshArea(positions, triangles));
+      this.grams.set(key, grams);
+    }
+    return grams;
+  }
+
+  private pieceGrams(spec: PieceSpec): number {
+    const locators = this.deps.locators();
+    return this.remember(`${locators}|${specKey(spec)}`, () => buildPiece(this.deps.wasm, spec, { locators }));
+  }
+
+  private plateGrams(size: [number, number]): number {
+    return this.remember(`plate|${size.join('x')}`, () => {
+      const plate = buildBasePlate(this.deps.wasm, size[0], size[1]);
+      const result = toResult(plate);
+      plate.delete();
+      return result;
+    });
+  }
+
+  private setInventory(next: Inventory) {
+    this.inventory = next;
+    try {
+      localStorage.setItem(INVENTORY_KEY, JSON.stringify(next));
+    } catch {
+      // Without storage the inventory lasts until the page is closed; the CSV keeps a copy.
+    }
+    this.deps.onChange();
+  }
+
+  private exportInventory() {
+    const { labels } = this.stock();
+    this.deps.download(inventoryToCsv(this.inventory, (id) => labels.get(id)), 'inventory.csv', 'text/csv');
+  }
+
+  private async importInventory(file: File) {
+    try {
+      this.inventoryFailed = false;
+      this.setInventory(parseInventoryCsv(await file.text()));
+    } catch {
+      this.inventoryFailed = true;
+      this.deps.onChange();
+    }
+  }
+
   private async exportZip() {
-    const data = await exportAssemblyZip(this.deps.wasm, this.assembly, { locators: this.deps.locators() });
+    const { rows } = this.stock();
+    const quantities = this.exportsMissing(rows) ? Object.fromEntries(rows.map((row) => [row.id, row.toPrint])) : undefined;
+    const data = await exportAssemblyZip(this.deps.wasm, this.assembly, { locators: this.deps.locators(), quantities });
     this.deps.download(data, `${this.assembly.name}.zip`, 'application/zip');
   }
 
@@ -375,6 +461,9 @@ export class AssemblyController {
     else if (asm === 'redo') this.redo();
     else if (asm === 'exportZip') void this.exportZip();
     else if (asm === 'loadGallery') this.loadGallery();
+    else if (asm === 'addPrinted') this.setInventory(addPrinted(this.inventory, this.stock().rows));
+    else if (asm === 'invExport') this.exportInventory();
+    else if (asm === 'invImport') document.querySelector<HTMLInputElement>('#invFile')?.click();
     else if (asm === 'clear') this.commit({ ...this.assembly, pieces: [] });
     else if (asm === 'save') this.deps.download(serializeAssembly(this.assembly), `${this.assembly.name}.json`, 'application/json');
     else if (asm === 'load') document.querySelector<HTMLInputElement>('#asmFile')?.click();
@@ -382,7 +471,15 @@ export class AssemblyController {
 
   /** Handles a form change inside the panel. */
   handleChange(target: HTMLInputElement | HTMLSelectElement) {
-    if (target.id === 'asmGallery') {
+    if (target.dataset.invId) {
+      this.setInventory(setStock(this.inventory, target.dataset.invId, Number(target.value)));
+    } else if (target.id === 'onlyMissing') {
+      this.onlyMissing = (target as HTMLInputElement).checked;
+      this.deps.onChange();
+    } else if (target.id === 'invFile') {
+      const file = (target as HTMLInputElement).files?.[0];
+      if (file) void this.importInventory(file);
+    } else if (target.id === 'asmGallery') {
       this.galleryId = target.value;
       this.deps.onChange();
     } else if (target.id === 'asmFile') {
@@ -439,17 +536,44 @@ export class AssemblyController {
   }
 
   private renderList(): string {
-    const { t } = this.deps;
-    const groups = pieceList(this.assembly);
-    if (groups.length === 0) return '';
-    const rows = groups
-      .map(({ id, spec, count }) => {
-        const [x, y, z] = spec.body.size;
-        return `<li><span>${id} <small>${t(SHAPE_LABELS[spec.body.shape])} ${x * 50}×${y * 50}×${z * 50}</small></span><strong>× ${count}</strong></li>`;
-      })
+    const { t, lang } = this.deps;
+    const { groups, plates, rows, labels } = this.stock();
+    if (rows.length === 0) return '';
+    const grams = new Map<string, number>([
+      ...groups.map(({ id, spec }): [string, number] => [id, this.pieceGrams(spec)]),
+      ...plates.map(({ id, size }): [string, number] => [id, this.plateGrams(size)]),
+    ]);
+    const weight = (g: number) => (g >= 1000 ? `${(g / 1000).toFixed(2)} kg` : `${Math.max(5, Math.round(g / 5) * 5)} g`).replace('.', lang() === 'en' ? '.' : ',');
+    const sum = (pick: (row: StockRow) => number) => rows.reduce((total, row) => total + pick(row), 0);
+    const toPrint = sum((row) => row.toPrint);
+    const printGrams = sum((row) => row.toPrint * grams.get(row.id)!);
+    const allGrams = sum((row) => row.count * grams.get(row.id)!);
+    const body = rows
+      .map(({ id, count, have, toPrint: due }) => `<tr>
+        <td>${id} <small>${labels.get(id)}</small></td>
+        <td>${count}</td>
+        <td><input type="number" min="0" step="1" value="${have}" data-inv-id="${id}" aria-label="${t('invHave')} ${id}" /></td>
+        <td class="${due ? 'due' : 'done'}">${due}</td>
+      </tr>`)
       .join('');
     const hasErrors = this.issues.some((i) => i.level === 'error');
-    return `<h2>${t('asmList')}</h2><ul class="segments">${rows}</ul>
+    return `<h2>${t('asmList')}</h2>
+      <table class="stock">
+        <thead><tr><th></th><th>${t('invNeed')}</th><th>${t('invHave')}</th><th>${t('invPrint')}</th></tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+      <p class="stats total">${toPrint ? t('invToPrint', { pieces: String(toPrint), weight: weight(printGrams), percent: String(Math.max(1, Math.round(printGrams / 10))) }) : t('invNothing')}</p>
+      <p class="stats">${t('invAll', { pieces: String(sum((row) => row.count)), weight: weight(allGrams) })}</p>
+      <p class="hint">${t('invAssumptions')}</p>
+      <p class="hint">${t('invHint')}</p>
+      <label class="toggle"><input type="checkbox" id="onlyMissing"${this.onlyMissing ? ' checked' : ''} /> ${t('invOnlyMissing')}</label>
+      <button class="btn wide" data-asm="addPrinted"${toPrint ? '' : ' disabled'}>${t('invAddPrinted')}</button>
+      <div class="presets files">
+        <button class="btn" data-asm="invExport">${t('invExport')}</button>
+        <button class="btn" data-asm="invImport">${t('invImport')}</button>
+      </div>
+      <input type="file" id="invFile" accept=".csv,text/csv,text/plain" hidden />
+      ${this.inventoryFailed ? `<div class="notice error">${t('badFile')}</div>` : ''}
       ${hasErrors ? `<p class="hint">${t('asmExportWarn')}</p>` : ''}`;
   }
 
@@ -477,6 +601,9 @@ export class AssemblyController {
     const hasSelection = this.selected !== null;
     const hasPieces = this.assembly.pieces.length > 0;
     const hasErrors = this.issues.some((i) => i.level === 'error');
+    const { rows } = this.stock();
+    const missingOnly = this.exportsMissing(rows);
+    const canExport = hasPieces && (!missingOnly || rows.some((row) => row.toPrint > 0));
     const openMenu = this.popover === 'gallery' ? this.renderGallery() : this.popover === 'file' ? this.renderFile() : '';
 
     return `
@@ -501,7 +628,7 @@ export class AssemblyController {
       </div>
       <div class="rib-group end">
         <button class="btn" data-tab="simulation">${t('tabSimulation')}</button>
-        <button class="btn primary" data-asm="exportZip"${hasPieces ? '' : ' disabled'}${hasErrors ? ` title="${t('asmExportWarn')}"` : ''}>${t('asmExportZip')}</button>
+        <button class="btn primary" data-asm="exportZip"${canExport ? '' : ' disabled'}${hasErrors ? ` title="${t('asmExportWarn')}"` : ''}>${t(missingOnly ? 'asmExportMissing' : 'asmExportZip')}</button>
       </div>
       ${openMenu ? `<div class="pop menu">${openMenu}</div>` : ''}
       <input type="file" id="asmFile" accept=".json,application/json" hidden />`;

@@ -43,6 +43,18 @@ describe('assembly export', () => {
     expect(manifest[manifest.length - 1]).toBe(`total\t${layout.pieces.length}`);
   });
 
+  it('can leave out what is already printed', async () => {
+    const groups = pieceList(layout);
+    const quantities = { [groups[0].id]: 1 };
+    const zip = await JSZip.loadAsync(await exportAssemblyZip(wasm, layout, { quantities }));
+    const stlNames = Object.keys(zip.files).filter((name) => name.endsWith('.stl'));
+    const manifest = (await zip.file(MANIFEST_NAME)!.async('string')).split('\n');
+    expect(stlNames).toHaveLength(1);
+    expect(stlNames[0]).toContain(`${groups[0].id}-`);
+    expect(stlNames[0]).toMatch(/-x1\.stl$/);
+    expect(manifest[manifest.length - 1]).toBe('total\t1');
+  });
+
   it('names in the list exactly the files in the archive', async () => {
     const { manifest, stlNames } = await open();
     const listed = manifest.slice(1, -1).map((row) => row.split('\t')[5]);
