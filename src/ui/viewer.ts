@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CONFIG } from '../geometry/config';
-import type { BuildResult } from '../geometry/piece';
+import type { BuildResult, DisplayPart } from '../geometry/piece';
 import { bodyHeight, FACE_DIR, FACES, isVertical, parseSide, portPosition, portsFor, type Body, type Face, type Port } from '../geometry/ports';
 
 const COLORS = { T: 0x1f5fbf, M: 0xd9822b, B: 0x2f8f5b, vertical: 0x4b5563, selected: 0xd4262c };
@@ -43,7 +43,12 @@ export class Viewer {
   private readonly camera = new THREE.PerspectiveCamera(35, 1, 1, 2000);
   private readonly controls: OrbitControls;
   private readonly material = new THREE.MeshStandardMaterial({ color: 0xd8b98a, roughness: 0.75, flatShading: true });
+  private readonly movingMaterial = new THREE.MeshStandardMaterial({ color: 0xc47a3d, roughness: 0.75, flatShading: true });
+  private readonly steelMaterial = new THREE.MeshStandardMaterial({ color: 0x9099a3, roughness: 0.35, metalness: 0.7, flatShading: true });
   private readonly mesh = new THREE.Mesh(new THREE.BufferGeometry(), this.material);
+  /** The moving and bought parts of a piece, each with where it goes when exploded. */
+  private readonly extras: { mesh: THREE.Mesh; explode: THREE.Vector3 }[] = [];
+  private exploded = false;
   private readonly markerGeometry = new THREE.SphereGeometry(2.6, 20, 14);
   private readonly markers = new Map<Port, THREE.Mesh>();
   private readonly labels = new Map<Face, THREE.Sprite>();
@@ -144,6 +149,33 @@ export class Viewer {
     this.mesh.geometry = toFlatGeometry(result);
   }
 
+  /** Shows a piece as separate parts, each in the colour of what it is made of. */
+  setParts(parts: DisplayPart[] | null) {
+    for (const { mesh } of this.extras) {
+      mesh.geometry.dispose();
+      this.scene.remove(mesh);
+    }
+    this.extras.length = 0;
+    if (!parts) return;
+    const [body, ...others] = parts;
+    this.setResult(body.result);
+    for (const part of others) {
+      const mesh = new THREE.Mesh(toFlatGeometry(part.result), part.role === 'steel' ? this.steelMaterial : this.movingMaterial);
+      this.extras.push({ mesh, explode: new THREE.Vector3(...part.explode) });
+      this.scene.add(mesh);
+    }
+    this.placeExtras();
+  }
+
+  setExploded(exploded: boolean) {
+    this.exploded = exploded;
+    this.placeExtras();
+  }
+
+  private placeExtras() {
+    for (const { mesh, explode } of this.extras) mesh.position.copy(this.exploded ? explode : new THREE.Vector3());
+  }
+
   setSelected(selected: Port | null) {
     for (const [port, marker] of this.markers) {
       (marker.material as THREE.MeshBasicMaterial).color.setHex(port === selected ? COLORS.selected : portColor(port));
@@ -152,10 +184,12 @@ export class Viewer {
   }
 
   setSeeThrough(enabled: boolean) {
-    this.material.transparent = enabled;
-    this.material.opacity = enabled ? 0.4 : 1;
-    this.material.depthWrite = !enabled;
-    this.material.side = enabled ? THREE.DoubleSide : THREE.FrontSide;
-    this.material.needsUpdate = true;
+    for (const material of [this.material, this.movingMaterial]) {
+      material.transparent = enabled;
+      material.opacity = enabled ? 0.4 : 1;
+      material.depthWrite = !enabled;
+      material.side = enabled ? THREE.DoubleSide : THREE.FrontSide;
+      material.needsUpdate = true;
+    }
   }
 }

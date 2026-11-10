@@ -173,6 +173,21 @@ Pauso bakoitza amaitzean aplikazioa funtzionamenduan egongo da eta GitHub-en arg
 
 Azken pausoa **11. Kanika-igogailua** da (2.9): 9. eta 10. pausoen ondoren.
 
+**Pieza mugikorren berrikuspena (2026-11-10):** lau piezak erabilerari begira birdiseinatu dira. Aldaketa guztiak testetan egiaztatuta daude (talka, jokoa, hegalak), baina **ez dira inprimatu**: neurriak 9. pausoko proben zain daude.
+
+| Pieza | Aldaketa | Erosi beharreko osagaiak |
+|---|---|---|
+| Balantzina | Besoaren erdian banatzaile bat: beti alde baxurantz makurtzen da (5,7 mm), eta kanika alde altuan erortzen da; bere pisuak besoa iraultzen du. Txandakatzaile automatikoa da orain. Gorputza 75 mm-ko altuerakoa da (1 × 3 × 1,5), kanika goiko zulotik atera ondoren desbideratu ahal izateko | Pina ISO 2338 Ø3 × 50 |
+| Bultzagailua | Aurreko zubia (bi hormak lotzen ditu eta kolpearen ondoren besoa gelditzen du); palanka besoaren gainean; topea 75°-tan; armatze-pin inprimatua 70°-tan; kanika sartzeko zuloa; kolpe-punta altzairuzkoa | Pina ISO 2338 Ø3 × 50; 2 azkoin ISO 4032 M12; torlojua ISO 7380 M5 × 10 |
+| Igoera | Profil leundua (tangente horizontala bi muturretan) eta 2 gelaxkako bertsioa (`rampClimbLong`) | — |
+| Igogailua | Kanikaren zentroa zuloaren hormatik 3 mm kanpora doa, arteka sakon batean; hariaren ertzak eramaten du eta kanporantz bultzatzen du; nukleoak (Ø64) ez dio barrurantz irteten uzten. Torlojuaren hondoa kanikaren eserlekua baino 3,5 mm beherago hasten da, haria kanikaren azpitik sar dadin. Leihoak lau aurpegietan. Goiko heldulekua ildaskatua, hatzarentzako sakonunearekin eta motorrerako hexagono-ahoarekin (10 mm) | Pina ISO 2338 Ø3 × 16; zirrindola ISO 7089 M3 |
+
+Ardatz guztiak Ø3 mm-ko altzairuzko pinak dira orain (`axleDiameter`); 1,75 mm-ko filamentua bi zatiko piezen lerrokatze-pinetarako bakarrik geratzen da. Aplikazioak "Xehetasunak" atala erakusten du pieza hauetan (zatiak, osagaiak, muntaketa, erabilera eta bista lehertua), eta osagai-zerrenda ZIP esportazioetan sartzen da (`README.txt` piezan, `hardware.txt` muntaian).
+
+**Motorizazioa (erabakia, 2026-11-10):** motorra goitik lotuko da, ez oinarritik. Arrazoia: igogailuaren azpiko oinarri-modulu batek sarrera 50 mm igoko luke, eta lurreko pistekin bateraezina litzateke. Aurreikusitakoa: N20 motor erreduktoreduna (6 V, 60 rpm inguru, suposizioa) hodiaren gaineko estalki batean, torlojuaren goiko hexagono-ahoari lotuta. Estalkia eta egokitzailea diseinatu gabe daude.
+
+**Muga ezagunak:** balantzinaren txandakatzea eta igogailua ez daude simulatuta; igogailuaren hodia eta torlojua astunak dira (250 g eta 140 g inguru, estimazioa); beirazko kanikak (5,4 g) balantzina iraultzeko duen tartea txikia da.
+
 Pistaren editorea (6) kanal bikoitzen aurretik doa, proiektuaren helburu nagusia delako eta bikoitzak gero portu-eredua zabalduz gehitzen direlako. Bikoitzek ez dute 1. pausoko eredua aldatzen behartuko, portuek hasieratik `lane` eremua izango dutelako (0 balioarekin).
 
 ## 5. Inprimaketa-arazoak

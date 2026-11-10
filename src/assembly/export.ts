@@ -1,8 +1,10 @@
 import JSZip from 'jszip';
 import type { ManifoldToplevel } from 'manifold-3d';
 import { CONFIG } from '../geometry/config';
+import { hardwareTotals } from '../geometry/details';
 import { buildBasePlate } from '../geometry/locators';
 import { toResult } from '../geometry/piece';
+import type { Shape } from '../geometry/ports';
 import { buildPrintParts } from '../geometry/print';
 import { toBinaryStl } from '../geometry/stl';
 import { serializeAssembly, type Assembly } from './model';
@@ -21,6 +23,7 @@ export interface ExportOptions {
 
 export const MANIFEST_NAME = 'parts.txt';
 export const ASSEMBLY_FILE_NAME = 'assembly.json';
+export const HARDWARE_NAME = 'hardware.txt';
 
 /** Packs one STL per distinct piece, a list with quantities and the assembly itself. */
 export async function exportAssemblyZip(wasm: ManifoldToplevel, assembly: Assembly, options: ExportOptions = {}): Promise<ArrayBuffer> {
@@ -29,12 +32,14 @@ export async function exportAssemblyZip(wasm: ManifoldToplevel, assembly: Assemb
 
   const howMany = (id: string, count: number) => (options.quantities ? options.quantities[id] ?? 0 : count);
   let total = 0;
+  const withHardware: { shape: Shape; count: number }[] = [];
 
   for (const group of pieceList(assembly)) {
     const { id, spec } = group;
     const count = howMany(id, group.count);
     if (count === 0) continue;
     total += count;
+    withHardware.push({ shape: spec.body.shape, count });
     const { parts } = buildPrintParts(wasm, spec, { engrave: true, locators: options.locators });
     const size = spec.body.size.map((value) => value * CONFIG.cubeSize).join('x');
     for (const { suffix, result } of parts) {
@@ -62,6 +67,9 @@ export async function exportAssemblyZip(wasm: ManifoldToplevel, assembly: Assemb
     }
   }
   zip.file(MANIFEST_NAME, rows.join('\n'));
+  // Steel pins, nuts and screws that the moving pieces need, to buy rather than print.
+  const hardware = hardwareTotals(withHardware);
+  if (hardware.length) zip.file(HARDWARE_NAME, ['count\tpart\tspec', ...hardware.map((item) => [item.count, item.id, item.spec].join('\t'))].join('\n'));
   zip.file(ASSEMBLY_FILE_NAME, serializeAssembly(assembly));
   return zip.generateAsync({ type: 'arraybuffer' });
 }

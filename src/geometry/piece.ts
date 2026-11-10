@@ -3,7 +3,7 @@ import { buildBody } from './body';
 import { buildCavityCutters, type Sweep } from './cavities';
 import { boreRadius, CONFIG, ROOF_PEAK_FACTOR } from './config';
 import { addStuds, cutPockets, type StudReport } from './locators';
-import { buildMovingPart } from './moving';
+import { buildHardware, buildMovingParts } from './moving';
 import { channelPath } from './paths';
 import { hasMovingPart, type PieceSpec, type Vec3 } from './ports';
 
@@ -108,8 +108,8 @@ export function buildReportedSolid(wasm: ManifoldToplevel, spec: PieceSpec, opti
     }
 
     if (hasMovingPart(spec.body.shape) && !options.omitMoving) {
-      const arm = keep(buildMovingPart(wasm, spec.body.shape, true));
-      solid = keep(Manifold.union([solid, arm]));
+      const moving = buildMovingParts(wasm, spec.body.shape, true).map((part) => keep(part.solid));
+      solid = keep(Manifold.union([solid, ...moving]));
     }
 
     if (options.sliceThickness) {
@@ -124,6 +124,31 @@ export function buildReportedSolid(wasm: ManifoldToplevel, spec: PieceSpec, opti
   } finally {
     owned.forEach((m) => m.delete());
   }
+}
+
+export type PartRole = 'body' | 'moving' | 'steel';
+
+/** One of the solids a piece is made of, for showing them apart. */
+export interface DisplayPart {
+  role: PartRole;
+  result: BuildResult;
+  /** Where the part moves to in the exploded view. */
+  explode: Vec3;
+}
+
+/** Builds the frame, the moving parts and the bought parts of a piece as separate meshes. */
+export function buildDisplayParts(wasm: ManifoldToplevel, spec: PieceSpec, options: BuildOptions = {}): DisplayPart[] {
+  const { shape } = spec.body;
+  const frame = buildSolid(wasm, spec, { ...options, omitMoving: true });
+  const parts: DisplayPart[] = [{ role: 'body', result: toResult(frame), explode: [0, 0, 0] }];
+  frame.delete();
+  const add = (role: PartRole, solid: Manifold, explode: Vec3) => {
+    parts.push({ role, result: toResult(solid), explode });
+    solid.delete();
+  };
+  buildMovingParts(wasm, shape, true).forEach(({ solid, explode }) => add('moving', solid, explode));
+  buildHardware(wasm, shape).forEach(({ solid, explode }) => add('steel', solid, explode));
+  return parts;
 }
 
 /** Builds a piece and returns its mesh, as the viewer shows it. */

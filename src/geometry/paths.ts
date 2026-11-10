@@ -22,14 +22,16 @@ const OVERSHOOT = 1;
 /** Level stretch from the centre of a start block, which holds the ball on its seat. */
 export const SEAT_LENGTH = 8;
 
+/** Eases a change of lane or of height so that the channel leaves and meets each face straight on. */
+const easeLane = (t: number) => (1 - Math.cos(Math.PI * t)) / 2;
+
 /** Height along a channel; a wave keeps descending, in one step per cell. */
 function heightAt(profile: Profile, from: number, to: number, t: number, cells: number): number {
+  // A climb leaves and arrives level, so the marble meets no corner at either joint.
+  if (profile === 'climb') return from + (to - from) * easeLane(t);
   const progress = profile === 'wave' ? t - Math.sin(2 * Math.PI * cells * t) / (2 * Math.PI * cells) : t;
   return from + (to - from) * progress;
 }
-
-/** Eases a change of lane so that the channel leaves and meets each face straight on. */
-const easeLane = (t: number) => (1 - Math.cos(Math.PI * t)) / 2;
 
 function sidePath(a: SidePort, b: SidePort, body: Body, profile: Profile): Vec3[] {
   const pa = portPosition(a, body);

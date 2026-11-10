@@ -156,3 +156,14 @@ table.stock input { width: 46px; padding: 2px 4px; border: 1px solid var(--line)
 table.stock td.due { color: var(--accent); font-weight: 600; }
 table.stock td.done { color: var(--muted); }
 .stats.total { color: var(--text); font-weight: 600; }
+
+table.bom { width: 100%; border-collapse: collapse; }
+table.bom td { padding: 5px 4px; border-bottom: 1px solid var(--line); vertical-align: top; line-height: 1.3; }
+table.bom td.count { width: 30px; color: var(--muted); font-variant-numeric: tabular-nums; }
+table.bom td.spec { text-align: right; white-space: nowrap; color: var(--muted); }
+table.bom small { display: block; color: var(--muted); font-size: 12px; }
+ol.steps { margin-top: 4px; }
+.swatch { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 2px; }
+.swatch.printed { background: linear-gradient(90deg, #d8b98a 50%, #c47a3d 50%); }
+.swatch.steel { background: #9099a3; }
+.toggle.explode { margin-top: 0; }

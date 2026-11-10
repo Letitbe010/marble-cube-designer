@@ -1,6 +1,6 @@
 import type { Manifold, ManifoldToplevel } from 'manifold-3d';
 import { CONFIG } from './config';
-import { buildMovingPart, leanAngle } from './moving';
+import { buildMovingParts, leanAngle } from './moving';
 import { buildReportedSolid, toResult, type BuildResult } from './piece';
 import type { StudReport } from './locators';
 import { bodyHeight, channelKey, hasMovingPart, type PieceSpec } from './ports';
@@ -205,13 +205,13 @@ export function buildPrintParts(wasm: ManifoldToplevel, spec: PieceSpec, options
     }
 
     if (hasMovingPart(spec.body.shape)) {
-      const arm = keep(buildMovingPart(wasm, spec.body.shape, false));
+      const moving = buildMovingParts(wasm, spec.body.shape, false);
       return {
         id,
         studs,
         parts: [
           { suffix: 'base', result: toResult(solid) },
-          { suffix: 'arm', result: toResult(keep(placeOnBed(arm))) },
+          ...moving.map((part) => ({ suffix: part.suffix, result: toResult(keep(placeOnBed(keep(part.solid)))) })),
         ],
       };
     }

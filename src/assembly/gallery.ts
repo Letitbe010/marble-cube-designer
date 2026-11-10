@@ -406,7 +406,7 @@ export const GALLERY: GalleryItem[] = [
     d.place('seesaw', [6, 6, 0]);
     d.place('stopLow', [6, 5, 0]);
     d.place('stopLow', [6, 9, 0], 180);
-    d.line('start', [6, 8, 3], 'S').to('drop');
+    d.line('start', [6, 8, 4], 'S').to('drop');
   }),
   make('finale', 'showpiece', (d) => {
     d.line('funnelTunnel', [4, 6, 6], 'E')

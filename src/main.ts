@@ -1,9 +1,11 @@
 import JSZip from 'jszip';
 import type { ManifoldToplevel } from 'manifold-3d';
 import './style.css';
-import { buildPiece, type BuildResult } from './geometry/piece';
+import { buildDisplayParts, buildPiece, type BuildResult } from './geometry/piece';
+import { filamentGrams, meshArea } from './geometry/filament';
+import { detailsText, hasDetails, renderDetails } from './ui/details';
 import { CAVITY_SIZES, cavityFits } from './geometry/cavities';
-import { CAVITY_TYPES, channel, expectedSolids, isSpecialShape, isSpiral, isVertical, normalizeBody, parseSide, portsFor, SHAPES, type Body, type Cavity, type CavityType, type Channel, type PieceSpec, type Port, type Shape } from './geometry/ports';
+import { CAVITY_TYPES, channel, expectedSolids, hasMovingPart, isSpecialShape, isSpiral, isVertical, normalizeBody, parseSide, portsFor, SHAPES, type Body, type Cavity, type CavityType, type Channel, type PieceSpec, type Port, type Shape } from './geometry/ports';
 import { HEIGHTS, LENGTHS, parseSpec, WIDTHS } from './geometry/specIo';
 import { CALIBRATION, CALIBRATION_THICKNESS, LIBRARY, PRESETS } from './geometry/presets';
 import { toBinaryStl } from './geometry/stl';
@@ -80,6 +82,9 @@ const state = {
   lanes: saved.spec.channels.some((c) => usesSideLane(c)),
   importFailed: false,
   seeThrough: false,
+  exploded: false,
+  /** Grams of filament of each printed part, for pieces made of several. */
+  partGrams: [] as number[],
   rejected: null as IssueCode | null,
   buildFailed: false,
   result: null as BuildResult | null,
@@ -111,6 +116,9 @@ function rebuild() {
     state.result = buildPiece(wasm, state.spec, { locators: state.locators });
     state.buildFailed = false;
     viewer.setResult(state.result);
+    const parts = hasMovingPart(state.spec.body.shape) ? buildDisplayParts(wasm, state.spec, { locators: state.locators }) : null;
+    viewer.setParts(parts);
+    state.partGrams = (parts ?? []).filter((p) => p.role !== 'steel').map(({ result }) => filamentGrams(result.volume, meshArea(result.positions, result.triangles)));
   } catch (error) {
     console.error(error);
     state.result = null;
@@ -227,6 +235,8 @@ async function exportPiece() {
   }
   const zip = new JSZip();
   for (const { suffix, result } of parts) zip.file(`${name}-${suffix}.stl`, stlOf(result, name));
+  const sheet = detailsText(state.spec.body.shape, `${t(SHAPE_LABELS[state.spec.body.shape])} · ${id}`, t);
+  if (sheet) zip.file('README.txt', sheet);
   download(await zip.generateAsync({ type: 'arraybuffer' }), `${name}.zip`, ZIP_TYPE);
 }
 
@@ -276,7 +286,11 @@ function sizeOptions(values: number[], selected: number): string {
 }
 
 function renderBodyEditor(body: Body): string {
-  if (isSpecialShape(body.shape)) return `<h2>${t('body')}</h2><p class="hint">${t(body.shape === 'seesaw' ? 'specialSeesaw' : body.shape === 'pendulum' ? 'specialPendulum' : body.shape === 'lift' ? 'specialLift' : 'specialLean')}</p>`;
+  if (isSpecialShape(body.shape)) {
+    const about = t(body.shape === 'seesaw' ? 'specialSeesaw' : body.shape === 'pendulum' ? 'specialPendulum' : body.shape === 'lift' ? 'specialLift' : 'specialLean');
+    const details = hasDetails(body.shape) ? renderDetails(body.shape, t, state.partGrams, state.exploded) : '';
+    return `<h2>${t('body')}</h2><p class="hint">${about}</p>${details}`;
+  }
   const [x, y, z] = body.size;
   const shapes = SHAPES.filter((s) => !isSpecialShape(s)).map((s) => `<option value="${s}"${s === body.shape ? ' selected' : ''}>${t(SHAPE_LABELS[s])}</option>`).join('');
   return `
@@ -427,6 +441,7 @@ function render() {
       </div>`).join('')}
 
     ${renderBodyEditor(spec.body)}
+    ${spec.channels.some((c) => c.profile === 'climb') ? `<p class="hint">${t('climbHint')}</p>` : ''}
     ${renderChannelEditor(spec, ports, notices)}
     ${renderCavityEditor(spec)}
     <label class="toggle"><input type="checkbox" id="xray"${state.seeThrough ? ' checked' : ''} /> ${t('xray')}</label>
@@ -547,7 +562,10 @@ const onControlChange = (event: Event) => {
   else if (target.id === 'sizeX') setBody({ shape: body.shape, size: [Number(target.value), y, z] });
   else if (target.id === 'sizeY') setBody({ shape: body.shape, size: [x, Number(target.value), z] });
   else if (target.id === 'sizeZ') setBody({ shape: body.shape, size: [x, y, Number(target.value)] });
-  else if (target.id === 'xray') {
+  else if (target.id === 'explode') {
+    state.exploded = (target as HTMLInputElement).checked;
+    viewer?.setExploded(state.exploded);
+  } else if (target.id === 'xray') {
     state.seeThrough = (target as HTMLInputElement).checked;
     viewer?.setSeeThrough(state.seeThrough);
   }

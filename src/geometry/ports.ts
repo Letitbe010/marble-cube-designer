@@ -16,6 +16,9 @@ export type Shape = (typeof SHAPES)[number];
 /** Shapes with their own fixed design, which come from the library and are not edited. */
 export const isSpecialShape = (shape: Shape) => shape === 'leanRamp' || shape === 'seesaw' || shape === 'pendulum' || shape === 'lift';
 
+/** How many separate printed parts move in the frame of a shape. */
+export const movingPartCount = (shape: Shape) => (shape === 'pendulum' ? 2 : shape === 'seesaw' || shape === 'lift' ? 1 : 0);
+
 /** Shapes printed as a frame and a separate part that moves in it. */
 export const hasMovingPart = (shape: Shape) => shape === 'seesaw' || shape === 'pendulum' || shape === 'lift';
 
@@ -175,7 +178,7 @@ export function channel(from: Port, to: Port, body: Body = UNIT_BODY, options: C
 }
 
 /** How many separate solids a piece is made of when assembled. */
-export const expectedSolids = (spec: PieceSpec) => (hasMovingPart(spec.body.shape) ? 2 : 1);
+export const expectedSolids = (spec: PieceSpec) => 1 + movingPartCount(spec.body.shape);
 
 export function boxPiece(channels: Channel[], size: Body['size'] = [1, 1, 1], cavities: Cavity[] = []): PieceSpec {
   return { body: { shape: 'box', size }, channels, cavities };

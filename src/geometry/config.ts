@@ -39,6 +39,8 @@ export const CONFIG = {
   pinClearance: 0.35,
   pinDepth: 6,
   pinInset: 8,
+  /** Axles of moving parts: a steel dowel pin (ISO 2338, 3 mm). */
+  axleDiameter: 3,
   /** Radial play of a moving part around its axle. */
   axleClearance: 0.3,
   /** Depth of the identifier engraved on the underside. */
