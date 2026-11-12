@@ -1,4 +1,4 @@
-import { spiralPath } from '../geometry/cavities';
+import { pieceTrack, spiralPath } from '../geometry/cavities';
 import { CONFIG } from '../geometry/config';
 import { channelPath } from '../geometry/paths';
 import { pendulumSeatY, seesawLanding } from '../geometry/moving';
@@ -137,6 +137,10 @@ function runsOf(piece: PlacedPiece): Run[] {
       ),
     );
   }
+
+  const track = pieceTrack(piece.spec);
+  // Every track is walled in, even the ones open from above, so no bend throws the marble out.
+  if (track) runs.push(makeRun(piece, track.ends, track.oneWay ? 'forward' : null, track.path, track.open, true));
   return runs;
 }
 

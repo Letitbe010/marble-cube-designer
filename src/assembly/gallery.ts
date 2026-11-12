@@ -1,4 +1,4 @@
-import { spiralPath } from '../geometry/cavities';
+import { pieceTrack, spiralPath, type TrackEnd } from '../geometry/cavities';
 import { CONFIG } from '../geometry/config';
 import { FACE_DIR, isSpiral, isVertical, parseSide, portPosition, type Channel, type Face, type PieceSpec, type Port, type SidePort, type Vec3 } from '../geometry/ports';
 import { PRESETS } from '../geometry/presets';
@@ -108,6 +108,47 @@ class Line {
     };
   }
 
+  /** Moves on from one end of a track, which has no port to name it by. */
+  private leaveTrack(piece: PlacedPiece, end: TrackEnd) {
+    const position = toWorld(piece, end.position);
+    if (!end.dir) {
+      this.cursor = end.vertical === 'D' && position[2] > 0
+        ? { cell: [Math.floor(position[0] / UNIT), Math.floor(position[1] / UNIT)], at: [position[0], position[1]], z: position[2], heading: this.cursor?.heading ?? FACE_DIR.S, falling: true }
+        : null;
+      return;
+    }
+    const heading = turn(end.dir, piece.rotation);
+    this.cursor = {
+      cell: [Math.floor((position[0] + heading[0] * UNIT * 0.5) / UNIT), Math.floor((position[1] + heading[1] * UNIT * 0.5) / UNIT)],
+      at: [position[0], position[1]],
+      z: position[2],
+      heading,
+      falling: false,
+    };
+  }
+
+  /** Places a track so that its way in meets the end of the line so far. */
+  private toTrack(key: string, options: ToOptions): this {
+    const spec = PRESETS[key];
+    const { ends } = pieceTrack(spec)!;
+    const [entry, exit] = options.reverse ? [ends[1], ends[0]] : ends;
+    const here = this.here;
+    if (!entry.dir) {
+      // Entered from above: the way in goes under the hole the marble is falling from.
+      if (!here.falling) throw new Error('Nothing is falling here');
+      const origin = toWorld({ spec, cell: [0, 0, 0], rotation: 0 }, entry.position);
+      const piece = this.draft.place(key, [(here.at[0] - origin[0]) / UNIT, (here.at[1] - origin[1]) / UNIT, (here.z - origin[2]) / Z_STEP], 0);
+      this.leaveTrack(piece, exit);
+      return this;
+    }
+    const rotation = rotationFor(entry.dir, [-here.heading[0], -here.heading[1]]);
+    const origin = toWorld({ spec, cell: [0, 0, 0], rotation }, entry.position);
+    const base = Math.floor((here.z - entry.position[2]) / Z_STEP) - (options.drop ?? 0);
+    const piece = this.draft.place(key, [(here.at[0] - origin[0]) / UNIT, (here.at[1] - origin[1]) / UNIT, base], rotation);
+    this.leaveTrack(piece, exit);
+    return this;
+  }
+
   private get here(): Cursor {
     if (!this.cursor) throw new Error('The track has already ended');
     return this.cursor;
@@ -124,6 +165,7 @@ class Line {
   /** Places a piece so that its entry meets the end of the track so far. */
   to(key: string, options: ToOptions = {}): this {
     const spec = PRESETS[key];
+    if (pieceTrack(spec)) return this.toTrack(key, options);
     const spiral = spec.cavities?.find((c) => isSpiral(c.type));
     const forward = spiral ? null : defaultRoute(spec);
     const route = forward && options.reverse ? { entry: forward.exit, exit: forward.entry } : forward;
@@ -427,6 +469,18 @@ export const GALLERY: GalleryItem[] = [
       .to('rampStraight').to('curveTunnel').to('curveTunnel').to('straightTunnel').to('curveTunnel')
       .through(crossing!, 'W.M.0')
       .to('rampStraight').to('stop');
+  }),
+  make('rollerCoaster', 'showpiece', (d) => {
+    d.line('start', [8, 18, 12], 'S')
+      .to('rampStraight').to('rampStraight').to('rampStraight').to('rampStraight')
+      .to('loop')
+      .to('wideCurve').to('wideCurve', { reverse: true })
+      .to('tunnelDrop')
+      .to('helix').to('helix');
+  }),
+  make('doubleHelix', 'showpiece', (d) => {
+    d.line('start', [6, 9, 13], 'S').to('drop').to('helix').to('helix').to('helix');
+    d.line('start', [9, 9, 13], 'S').to('drop').to('helixMirror').to('helixMirror').to('helixMirror');
   }),
   make('grandTour', 'showpiece', (d) => {
     d.line('start', [4, 12, 9], 'S')

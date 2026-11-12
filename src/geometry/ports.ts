@@ -44,16 +44,19 @@ export interface ChannelOptions {
   profile?: Profile;
 }
 
-export const CAVITY_TYPES = ['funnel', 'basin', 'chamber', 'spiral', 'spiralMirror'] as const;
+export const CAVITY_TYPES = ['funnel', 'basin', 'chamber', 'spiral', 'spiralMirror', 'wideCurve', 'helix', 'helixMirror', 'loop'] as const;
 export type CavityType = (typeof CAVITY_TYPES)[number];
 
 export const isSpiral = (type: CavityType) => type === 'spiral' || type === 'spiralMirror';
 
+/** Cavities that are a whole track of their own, and fill a body of one fixed size. */
+export const isTrack = (type: CavityType) => isSpiral(type) || type === 'wideCurve' || type === 'helix' || type === 'helixMirror' || type === 'loop';
+
 export interface Cavity {
   type: CavityType;
-  /** Radius in millimetres; ignored by the spiral, which fills its plate. */
+  /** Radius in millimetres; ignored by tracks, which fill their body. */
   size: number;
-  /** Grid cell holding the cavity; ignored by the spiral. */
+  /** Grid cell holding the cavity; ignored by tracks. */
   cell: [number, number];
 }
 

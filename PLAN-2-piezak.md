@@ -120,6 +120,22 @@ Helburua: kanikak zirkuituaren amaieratik hasierara igotzea, begizta jarraituak 
 
 **Erabaki gabe:** motor mota, elikadura, altuera maximoa, eta aplikazioak elektronikaren programa eman behar duen ala ez.
 
+### 2.10 Ibilbide bereziak (12. pausoa)
+
+**Egoera (2026-11-10):** hiru pieza-familia berri daude liburutegian ("Ibilbide bereziak"). Espiralaren eredu bera darabilte: gorputz finko bat eta ibilbide oso bat hutsune gisa (`isTrack`). Geometria eta simulazioa testetan egiaztatuta daude; **ez dira inprimatu**.
+
+| Pieza | Gorputza | Diseinua | Bolumen trinkoa |
+|---|---|---|---|
+| Kurba zabala (`wideCurve`, `wideCurveLow`) | 2 × 2 × 1 eta 2 × 2 × 0,5 | 75 mm-ko erradioko kurba laurdena, erdiko mailan, goitik irekia. Hormak kanikaren zentroa baino gorago daude, eta simulazioan ez da kurbatik irteten. Bi noranzkoetan erabil daiteke | 435 cm³ / 210 cm³ |
+| Helize-dorrea (`helix`, `helixMirror`) | 2 × 2 × 2 | Bi bira tunelean, 9,5°-ko maldan. Sarrera goitik eta irteera behetik, biak gelaxka beraren erdian: moduluak zuzenean pilatzen dira. Lau aurpegietan 9 mm-ko zirrikituak, kanika pasatzen ikusteko | 851 cm³ |
+| Begizta bertikala (`loop`) | 1 × 3 × 2 | 30 mm-ko erradioko begizta tunelean; gailurrean kale batetik bestera pasatzen da (±12,5 mm), sarrerako eta irteerako bideak ez gurutzatzeko. Alboetan 45°-ko zirrikituak. Tunel itxia denez, kanikak ez du gutxieneko abiadurarik behar sabaitik ez erortzeko: gailurrera iristeko energia besterik ez | 656 cm³ |
+
+Horrez gain, `tunnelDrop` pieza gehitu da (erdiko mailako tuneletik beheko zulora), helize-dorreak elikatzeko.
+
+**Simulazioa:** 60°-tik gorako norabide-aldaketa bat kolpetzat hartzen da, eta kanikak norabide berriko abiadura-osagaia baino ez du gordetzen. Horrela, helizearen sarrerako eta irteerako putzuetan erorketaren abiadura galdu egiten da. Lehendik zeuden muntaien emaitzak ez dira aldatu.
+
+**Muga ezagunak:** begiztak, simulazioaren arabera, lau malda zuzen behar ditu aurretik (125 mm-ko jaitsiera) hiru errodadura-kasuetan pasatzeko; bi maldarekin emaitza errodaduraren araberakoa da. Balio horiek suposizioak dira 9. pausoko neurketak egin arte. Piezak astunak dira, eta "Errusiar mendia" muntaiak 12 litro inguruko bolumen trinkoa du, gehiena euskarri-blokeetan.
+
 ## 3. Estaldura
 
 | Irudietan agertzen dena | Familia | Pausoa |

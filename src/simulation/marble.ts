@@ -95,6 +95,22 @@ function pathRadii(path: Vec3[]): number[] {
   return path.slice(0, -1).map((_, i) => (i === 0 ? Infinity : horizontalRadius(path[i - 1], path[i], path[i + 1])));
 }
 
+/** A turn sharper than this, in degrees, is an impact: the marble hits a wall instead of rolling round. */
+const IMPACT_ANGLE = 60;
+
+/**
+ * Share of the speed kept on entering each segment of a path. A marble that meets a wall
+ * head-on, as at the foot of a shaft, only keeps the part of its speed that points the new way.
+ */
+function pathRetention(path: Vec3[]): number[] {
+  const limit = Math.cos((IMPACT_ANGLE * Math.PI) / 180);
+  return path.slice(0, -1).map((_, i) => {
+    if (i === 0) return 1;
+    const cosine = dot(direction(path[i - 1], path[i]), direction(path[i], path[i + 1]));
+    return cosine < limit ? Math.max(0, cosine) : 1;
+  });
+}
+
 interface Step {
   run: Run;
   /** Index of the path segment on which the marble continues. */
@@ -177,6 +193,7 @@ function roll(start: Run, graph: RunGraph, params: SimParams): MarbleResult {
   let run = start;
   let path = orientedPath(run);
   let radii = pathRadii(path);
+  let retention = pathRetention(path);
   let index = 0;
   let along = 0;
   const seated = start.piece.spec.channels.some((c) => c.profile === 'release');
@@ -226,6 +243,7 @@ function roll(start: Run, graph: RunGraph, params: SimParams): MarbleResult {
     while (along >= segmentLength(path[index], path[index + 1]) && index + 2 < path.length) {
       along -= segmentLength(path[index], path[index + 1]);
       index += 1;
+      speed *= retention[index];
     }
   };
 
@@ -258,6 +276,7 @@ function roll(start: Run, graph: RunGraph, params: SimParams): MarbleResult {
       if (index + 2 < path.length) {
         along -= segmentLength(path[index], path[index + 1]);
         index += 1;
+        speed *= retention[index];
         continue;
       }
       const next = nextStep(run, graph);
@@ -275,6 +294,7 @@ function roll(start: Run, graph: RunGraph, params: SimParams): MarbleResult {
       run = next.run;
       path = orientedPath(run);
       radii = pathRadii(path);
+      retention = pathRetention(path);
       index = next.from;
       along = next.along;
       advance(flight);

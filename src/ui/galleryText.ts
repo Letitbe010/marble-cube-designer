@@ -166,6 +166,16 @@ export const GALLERY_TEXT: Record<string, Record<Lang, Text>> = {
     es: { name: 'Torre con bucle', note: 'De una torre a un bucle que pasa bajo sí mismo.' },
     en: { name: 'Loop tower', note: 'From a tower into a loop that passes under itself.' },
   },
+  rollerCoaster: {
+    eu: { name: 'Errusiar mendia', note: 'Jaitsiera luzea, begizta bertikala, bi kurba zabal eta bi helize-dorre mahairaino.' },
+    es: { name: 'Montaña rusa', note: 'Una larga bajada, un rizo vertical, dos curvas amplias y dos torres helicoidales hasta la mesa.' },
+    en: { name: 'Roller coaster', note: 'A long descent, a vertical loop, two wide curves and two helix towers down to the table.' },
+  },
+  doubleHelix: {
+    eu: { name: 'Kiribil bikoitza', note: 'Bi kanika aldi berean, hiru moduluko bi helize-dorretan behera, bakoitza noranzko batean.' },
+    es: { name: 'Doble hélice', note: 'Dos canicas a la vez por dos torres helicoidales de tres módulos, cada una en un sentido.' },
+    en: { name: 'Double helix', note: 'Two marbles at once down two helix towers of three modules, each winding its own way.' },
+  },
   grandTour: {
     eu: { name: 'Bira handia', note: 'Tunelak, kurbak, zuloa eta espirala muntaia luze batean.' },
     es: { name: 'Gran recorrido', note: 'Túneles, curvas, agujero y espiral en un largo montaje.' },
